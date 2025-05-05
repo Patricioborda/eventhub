@@ -157,46 +157,43 @@ def event_form(request, id=None):
     categories = Category.objects.filter(is_active=True)
     selected_categories = event.categories.values_list('id', flat=True) if event else []
 
-
     if request.method == "POST":
         title = request.POST.get("title")
         description = request.POST.get("description")
         date = request.POST.get("date")
         time = request.POST.get("time")
-        venue_id = request.POST.get("venue")
+        venue_id = request.POST.get("venue")  # Obtener el ID de la ubicación seleccionada
 
         category_ids = request.POST.getlist("categories")
 
         # Convertir fecha y hora
-        [year, month, day] = date.split("-")
-        [hour, minutes] = time.split(":")
         scheduled_at = timezone.make_aware(
             datetime.datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
         )
 
+        # Validar y obtener la ubicación
         venue = get_object_or_404(Venue, pk=venue_id) if venue_id else None
         selected_categories = Category.objects.filter(id__in=category_ids)
 
-
         if id is None:
+            # Crear un nuevo evento
             success, errors = Event.new(title, description, venue, scheduled_at, user, selected_categories)
 
             if not success:
                 venues = Venue.objects.all()
-                return  render(request, "app/event_form.html", {
-                        "event": {},
-                        "categories": categories,
-                        "selected_categories": category_ids,
-                        "venues": venues,
-                        "venue_form": VenueForm(),
-                        "errors": errors,
-                        "user_is_organizer": user.is_organizer,
-                    },
-                )
+                return render(request, "app/event_form.html", {
+                    "event": {},
+                    "categories": categories,
+                    "selected_categories": category_ids,
+                    "venues": venues,
+                    "venue_form": VenueForm(),
+                    "errors": errors,
+                    "user_is_organizer": user.is_organizer,
+                })
         else:
+            # Actualizar un evento existente
             event = get_object_or_404(Event, pk=id)
             event.update(title, description, venue, scheduled_at, user, selected_categories)
-
 
         return redirect("events")
     else:
