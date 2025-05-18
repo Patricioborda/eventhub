@@ -3,9 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const table = document.querySelector(".table-wrapper-fav");
   const cards = document.getElementById("cardView");
 
-  if (!toggleBtn || !table || !cards) return;
-
-  // Cargar vista previa del localStorage
+  // Recuperar preferencia de vista
   const savedView = localStorage.getItem("favoritos_view");
   if (savedView === "cards") {
     table.classList.add("d-none");
@@ -22,31 +20,37 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("favoritos_view", newView);
   });
 
-  // Confirmar y eliminar con animación
-  document.querySelectorAll(".btn-remove-card").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const item = btn.closest("tr") || btn.closest(".col");
-      if (!item) return;
+  // Acción: Toggle favorito
+  document.querySelectorAll(".btn-fav-toggle").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const eventId = btn.dataset.eventId;
+      const icon = btn.querySelector("i");
+      const rowOrCard = btn.closest("tr") || btn.closest(".col");
 
-      Swal.fire({
-        title: "¿Eliminar de favoritos?",
-        text: "Esta acción es solo visual por ahora.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, eliminar",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#d33"
-      }).then(result => {
-        if (result.isConfirmed) {
-          item.classList.add("fade-out-remove");
-          setTimeout(() => item.remove(), 400);
+      if (!eventId || !icon || !rowOrCard) return;
+
+      try {
+        const res = await fetch(`/favorites/toggle/${eventId}/`, {
+          method: "POST",
+          headers: { "X-CSRFToken": getCsrfToken() }
+        });
+
+        const data = await res.json();
+
+        if (!data.favorito) {
+          // Eliminar visual
+          rowOrCard.classList.add("fade-out-remove");
+          setTimeout(() => rowOrCard.remove(), 400);
           showToast("Eliminado de favoritos 💔", "info");
         }
-      });
+      } catch (err) {
+        console.error("Error al eliminar favorito:", err);
+        showToast("Ocurrió un error", "error");
+      }
     });
   });
 
-  // Toast personalizado
   function showToast(msg, type = "info") {
     const toast = document.createElement("div");
     toast.className = `toast-msg toast-${type}`;
@@ -58,5 +62,10 @@ document.addEventListener("DOMContentLoaded", () => {
       toast.classList.remove("show");
       setTimeout(() => toast.remove(), 300);
     }, 2200);
+  }
+
+  function getCsrfToken() {
+    const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+    return cookie ? cookie.split('=')[1] : '';
   }
 });
