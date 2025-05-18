@@ -16,6 +16,7 @@ from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
+from django.views.decorators.http import require_POST
 
 from .forms import (
     CategoryForm,
@@ -30,6 +31,7 @@ from .models import (
     Category,
     Comment,
     Event,
+    Favorite,
     Notification,
     Rating,
     RefundRequest,
@@ -118,10 +120,16 @@ def privacy_policy(request):
 @login_required
 def events(request):
     events = Event.objects.all().order_by("scheduled_at")
+    # Obtener lista de favoritos del usuario
+    favoritos_ids = request.user.favorites.values_list("event_id", flat=True)
     return render(
         request,
         "app/events.html",
-        {"events": events, "user_is_organizer": request.user.is_organizer},
+        {
+            "events": events, 
+            "user_is_organizer": request.user.is_organizer,
+            "favoritos_ids": list(favoritos_ids)
+        },
     )
 
 
@@ -869,3 +877,22 @@ def rating_delete(request, rating_id):
 def favorites_list(request):
     favoritos = Event.objects.filter(favorited_by__user=request.user).order_by("scheduled_at")
     return render(request, "app/favorites/list.html", {"events": favoritos})
+
+@require_POST
+@login_required
+def toggle_favorite(request, event_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    event = get_object_or_404(Event, id=event_id)
+
+    if not event:
+        return JsonResponse({"error": "Evento no encontrado"}, status=404)
+
+    favorite, created = Favorite.objects.get_or_create(user=request.user, event=event)
+
+    if not created:
+        favorite.delete()
+        return JsonResponse({"favorito": False})
+    else:
+        return JsonResponse({"favorito": True})

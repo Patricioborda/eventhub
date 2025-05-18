@@ -9,3 +9,41 @@
     background: #43b982 !important;
     color: #fff !important;
 }
+
+.toast-msg {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.8rem 1.2rem;
+  background-color: #1e1e2f;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+  z-index: 9999;
+  font-size: 0.95rem;
+}
+.toast-msg.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast-success {
+  background-color: #43b9827d;
+}
+.toast-info {
+  background-color: #0d6dfd82;
+}
+.toast-error {
+  background-color: #e4222c85;
+}
+
+.btn-fav-toggle i {
+  transition: all 0.3s ease;
+}
+
+/* Estrella marcada */
+.btn-fav-toggle i.bi-star-fill.text-warning.fav-glow {
+  filter: drop-shadow(0 0 6px gold) drop-shadow(0 0 12px #ffeb3b);
+}

@@ -1,3 +1,11 @@
+function getCsrfToken() {
+  const cookie = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='));
+  return cookie ? cookie.split('=')[1] : '';
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("eventForm");
 
@@ -216,3 +224,61 @@ document.querySelectorAll('.comment-delete-form').forEach(form => {
       }).then(r => { if (r.isConfirmed) form.submit(); });
     });
   });
+
+
+  document.addEventListener("DOMContentLoaded", function () {
+  const favButtons = document.querySelectorAll(".btn-fav-toggle");
+
+  favButtons.forEach(btn => {
+    btn.addEventListener("click", async function () {
+      const icon = this.querySelector("i");
+      const eventId = this.dataset.eventId;
+
+      if (!eventId || !icon) return;
+
+      // Prevención de doble clic rápido
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`/favorites/toggle/${eventId}/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await res.json();
+
+        const isFav = data.favorito;
+
+        icon.classList.remove("bi-star", "bi-star-fill", "text-warning", "fav-glow");
+        icon.classList.add(isFav ? "bi-star-fill" : "bi-star");
+        if (isFav) {
+          icon.classList.add("text-warning", "fav-glow");
+          showToast("Agregado a favoritos ✨", "success");
+        } else {
+          showToast("Eliminado de favoritos 💔", "info");
+        }
+      } catch (error) {
+        console.error("Error al marcar favorito", error);
+        showToast("Ocurrió un error", "error");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // Toast personalizado sin librerías externas
+  function showToast(msg, type = "info") {
+    const toast = document.createElement("div");
+    toast.className = `toast-msg toast-${type}`;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add("show"), 10); // animación de entrada
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 300); // limpieza tras salida
+    }, 2200);
+  }
+});

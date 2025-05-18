@@ -24,7 +24,9 @@
             <td class="align-middle">{{ event.scheduled_at|date:"d/m/Y H:i" }}</td>
             <td class="align-middle">{{ event.organizer.username }}</td>
             <td class="text-end align-middle">
-              <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" title="Ver detalle del evento">👁️</a>
+                <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" title="Ver detalle del evento">
+                    <i class="bi bi-eye"></i>
+                </a>
               <button class="btn-fav-remove" title="Eliminar de favoritos (demo)">⭐</button>
             </td>
           </tr>

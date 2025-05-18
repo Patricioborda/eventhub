@@ -55,12 +55,22 @@
                     </td>
                     <td>
                         <div class="hstack gap-1">
+                            <button class="btn btn-sm btn-fav-toggle"
+                                    title="Marcar como favorito"
+                                    data-event-id="{{ event.id }}">
+                                {% if event.id in favoritos_ids %}
+                                    <i class="bi bi-star-fill text-warning fav-glow"></i>
+                                {% else %}
+                                    <i class="bi bi-star"></i>
+                                {% endif %}
+                            </button>
                             <a href="{% url 'event_detail' event.id %}"
                                aria-label="Ver detalle"
                                class="btn btn-sm btn-outline-primary"
                                title="Ver detalle">
                                 <i class="bi bi-eye" aria-hidden="true"></i>
                             </a>
+                            
                             {% if user_is_organizer %}
                                 <a href="{% url 'event_edit' event.id %}" class="btn btn-sm btn-outline-secondary" aria-label="Editar" title="Editar">
                                     <i class="bi bi-pencil" aria-hidden="true"></i>

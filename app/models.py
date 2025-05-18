@@ -297,6 +297,8 @@ class Rating(models.Model):
         return f"{self.rating}★ - {self.title} ({self.user.username})"
 
 
+from django.core.exceptions import ValidationError
+
 class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorites")
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="favorited_by")
@@ -307,3 +309,7 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user.username} ♥ {self.event.title}"
+
+    def clean(self):
+        if not self.user or not self.event:
+            raise ValidationError("Usuario y evento deben estar definidos.")
