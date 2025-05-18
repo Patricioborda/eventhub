@@ -19,7 +19,7 @@
         </thead>
         <tbody>
           {% for event in events %}
-          <tr>
+          <tr data-event-id="{{ event.id }}">
             <td>{{ event.title }}</td>
             <td>{{ event.scheduled_at|date:"d/m/Y H:i" }}</td>
             <td>{{ event.organizer.username }}</td>
@@ -27,7 +27,7 @@
               <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" title="Ver detalle">
                 <i class="bi bi-eye"></i>
               </a>
-              <button class="btn btn-sm btn-fav-toggle" title="Quitar de favoritos" data-event-id="{{ event.id }}">
+              <button class="btn btn-sm btn-fav-remove" title="Quitar de favoritos" data-event-id="{{ event.id }}">
                 <i class="bi bi-star-fill text-warning fav-glow"></i>
               </button>
             </td>
@@ -41,7 +41,7 @@
   <!-- Vista tarjetas -->
   <div id="cardView" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 d-none mt-4">
     {% for event in events %}
-    <div class="col">
+    <div class="col" data-event-id="{{ event.id }}">
       <div class="card tarjetaFav h-100">
         <div class="card-body">
           <h5 class="card-title">{{ event.title }}</h5>
@@ -52,7 +52,7 @@
           <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" title="Ver detalle">
             <i class="bi bi-eye"></i>
           </a>
-          <button class="btn btn-sm btn-fav-toggle" title="Quitar de favoritos" data-event-id="{{ event.id }}">
+          <button class="btn btn-sm btn-fav-remove" title="Quitar de favoritos" data-event-id="{{ event.id }}">
             <i class="bi bi-star-fill text-warning fav-glow"></i>
           </button>
         </div>
