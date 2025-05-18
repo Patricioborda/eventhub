@@ -54,4 +54,5 @@ urlpatterns = [
     path("refunds/manage/", views.manage_refund_requests, name="manage_refund_requests"),
     path("refunds/<int:id>/approve/", views.approve_refund_request, name="approve_refund_request"),
     path("refunds/<int:id>/reject/", views.reject_refund_request, name="reject_refund_request"),
+    path("favorites/", views.favorites_list, name="favorites_list"),
 ]

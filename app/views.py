@@ -863,3 +863,9 @@ def rating_delete(request, rating_id):
         return redirect(reverse("event_detail", kwargs={"id": event_id}))
 
     return redirect("events")
+
+
+@login_required
+def favorites_list(request):
+    favoritos = Event.objects.filter(favorited_by__user=request.user).order_by("scheduled_at")
+    return render(request, "app/favorites/list.html", {"events": favoritos})

@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="{% static 'css/ticket.css' %}?v=20250508">
     <link rel="stylesheet" href="{% static 'css/comments.css' %}?v=20250508">
     <link rel="stylesheet" href="{% static 'css/ratings.css' %}?v=20250509">
+    <link rel="stylesheet" href="{% static 'css/favorites.css' %}?v=20250518">git add .
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
@@ -113,6 +114,11 @@
               </button>
             
               <div id="notifDropdown" class="custom-dropdown"></div>
+            </li>
+            <li class="nav-item position-relative">
+              <a href="{% url 'favorites_list' %}" title="Mis favoritos" class="btn notif-toggle">
+                <i class="bi bi-star-fill fs-5" style="color: gold;"></i>
+              </a>
             </li>
           </ul>
 

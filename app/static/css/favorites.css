@@ -1,0 +1,58 @@
+.containerFavoritos {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  animation: fadeIn 0.3s ease-in-out both;
+}
+
+.table-fav {
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.table-fav th,
+.table-fav td {
+  vertical-align: middle;
+}
+
+.table-wrapper-fav {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.draggable-scroll {
+  overflow-x: auto;
+  cursor: grab;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.draggable-scroll:active {
+  cursor: grabbing;
+}
+
+.draggable-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.draggable-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .table-fav {
+    min-width: 680px;
+  }
+}
