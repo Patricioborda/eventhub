@@ -876,7 +876,7 @@ def rating_delete(request, rating_id):
 @login_required
 def favorites_list(request):
     favoritos = Event.objects.filter(favorited_by__user=request.user).order_by("scheduled_at")
-    return render(request, "app/favorites/list.html", {"events": favoritos})
+    return render(request, "favorites/list.html", {"events": favoritos})
 
 @require_POST
 @login_required
