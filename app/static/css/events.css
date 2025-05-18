@@ -47,3 +47,87 @@
 .btn-fav-toggle i.bi-star-fill.text-warning.fav-glow {
   filter: drop-shadow(0 0 6px gold) drop-shadow(0 0 12px #ffeb3b);
 }
+
+.table-wrapper-events {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.draggable-scroll {
+  overflow-x: auto;
+  cursor: grab;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.draggable-scroll:active {
+  cursor: grabbing;
+}
+
+.draggable-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.draggable-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.table-events {
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: fadeIn 0.4s ease-out both;
+  width: 100%;
+  min-width: 800px; /* 👈 fuerza scroll en mobile */
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .table-events {
+    min-width: 700px;
+  }
+}
+
+
+.encabezadoEventos {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.botonesEventos {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .encabezadoEventos {
+    flex-direction: column;
+    align-items: flex-start; /* ⬅ para que los botones vayan a la izquierda */
+  }
+
+  .botonesEventos {
+    flex-direction: column;
+    width: 70%;
+    a{
+        border-radius: 10px !important;
+        -webkit-border-radius: 10px !important;
+        -moz-border-radius: 10px !important;
+        -ms-border-radius: 10px !important;
+        -o-border-radius: 10px !important;
+}
+  }
+
+  .botonesEventos .btn {
+    width: 100%;
+    text-align: left;
+  }
+}

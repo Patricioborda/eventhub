@@ -4,22 +4,23 @@
 
 {% block content %}
 <div class="containerEventos">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="encabezadoEventos mb-4">
         <h1>Eventos</h1>
-        {% if user_is_organizer %}
-            <div class="btn-group">
-              <a href="{% url 'event_form' %}" class="btn btn-eventgub-green">
-                <i class="bi bi-plus-circle me-2"></i>Crear Evento
-              </a>
-              <a href="{% url 'organizer_comments' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-chat-dots me-1"></i>Ver comentarios
-              </a>
-            </div>
-        {% endif %}
+
+        <div class="btn-group botonesEventos">
+            <a href="/events/create/" class="btn btn-eventgub-green">
+            <i class="bi bi-plus-circle me-2"></i>Crear Evento
+            </a>
+            <a href="/events/comments/" class="btn btn-outline-secondary">
+            <i class="bi bi-chat-dots me-1"></i>Ver comentarios
+            </a>
+        </div>
     </div>
     
-    <table class="table">
-        <thead>
+    <div class="table-wrapper-events">
+  <div class="draggable-scroll" id="eventTableScroll">
+    <table class="table table-hover table-events">
+        <thead class="table-light">
             <tr>
                 <th>Título</th>
                 <th>Fecha</th>
@@ -55,32 +56,26 @@
                     </td>
                     <td>
                         <div class="hstack gap-1">
-                            <button class="btn btn-sm btn-fav-toggle"
-                                    title="Marcar como favorito"
-                                    data-event-id="{{ event.id }}">
-                                {% if event.id in favoritos_ids %}
-                                    <i class="bi bi-star-fill text-warning fav-glow"></i>
-                                {% else %}
-                                    <i class="bi bi-star"></i>
-                                {% endif %}
+                            <button class="btn btn-sm btn-fav-toggle" title="Marcar como favorito" data-event-id="{{ event.id }}">
+                              {% if event.id in favoritos_ids %}
+                                <i class="bi bi-star-fill text-warning fav-glow"></i>
+                              {% else %}
+                                <i class="bi bi-star"></i>
+                              {% endif %}
                             </button>
-                            <a href="{% url 'event_detail' event.id %}"
-                               aria-label="Ver detalle"
-                               class="btn btn-sm btn-outline-primary"
-                               title="Ver detalle">
-                                <i class="bi bi-eye" aria-hidden="true"></i>
+                            <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                              <i class="bi bi-eye"></i>
                             </a>
-                            
                             {% if user_is_organizer %}
-                                <a href="{% url 'event_edit' event.id %}" class="btn btn-sm btn-outline-secondary" aria-label="Editar" title="Editar">
-                                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                                </a>
-                                <form action="{% url 'event_delete' event.id %}" method="POST" style="display: inline;">
-                                    {% csrf_token %}
-                                    <button class="btn btn-sm btn-outline-danger" title="Eliminar" type="submit" aria-label="Eliminar" titile="Eliminar">
-                                        <i class="bi bi-trash" aria-hidden="true"></i>
-                                    </button>
-                                </form>
+                              <a href="{% url 'event_edit' event.id %}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                              </a>
+                              <form action="{% url 'event_delete' event.id %}" method="POST" style="display: inline;">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger" title="Eliminar" type="submit">
+                                  <i class="bi bi-trash"></i>
+                                </button>
+                              </form>
                             {% endif %}
                         </div>
                     </td>
@@ -92,5 +87,6 @@
             {% endfor %}
         </tbody>
     </table>
+  </div>
 </div>
 {% endblock %}
