@@ -16,6 +16,7 @@ from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
+from datetime import datetime
 
 from .forms import (
     CategoryForm,
@@ -129,6 +130,12 @@ def events(request):
 def event_detail(request, id):
     event = get_object_or_404(Event, pk=id)
 
+    countdown_seconds = event.countdown_seconds()
+
+    user = request.user
+    user_is_organizer = user.is_organizer if user.is_authenticated else False
+
+
     # ---------- Flags de edición ----------
     edit_id   = request.GET.get("edit_rating")       # p.e. "17" ó None
     edit_mode = bool(edit_id)
@@ -170,15 +177,17 @@ def event_detail(request, id):
         event=event, is_deleted=False
     ).order_by("-created_at")
 
+   # ---------- Renderizar ----------
     return render(request, "app/event_detail.html", {
         "event":            event,
+        "countdown_seconds": countdown_seconds,
         "ratings":          ratings,
         "edit_mode":        edit_mode,
         "edit_rating_id":   int(edit_id) if edit_id else 0,
         "rating":           my_rating,
         "form":             form,
         "comments":         comments,
-        "user_is_organizer":request.user.is_organizer,
+        "user_is_organizer": user_is_organizer,
     })
 
 @login_required

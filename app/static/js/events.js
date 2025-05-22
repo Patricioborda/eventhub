@@ -216,3 +216,32 @@ document.querySelectorAll('.comment-delete-form').forEach(form => {
       }).then(r => { if (r.isConfirmed) form.submit(); });
     });
   });
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const countdownEl = document.getElementById('countdown');
+    if (!countdownEl) return;
+
+    let countdownSeconds = parseInt(countdownEl.dataset.seconds);
+
+    function formatTime(seconds) {
+        let d = Math.floor(seconds / (3600 * 24));
+        let h = Math.floor((seconds % (3600 * 24)) / 3600);
+        let m = Math.floor((seconds % 3600) / 60);
+        let s = seconds % 60;
+        return `${d}d ${h}h ${m}m ${s}s`;
+    }
+
+    function updateCountdown() {
+        if (countdownSeconds > 0) {
+            countdownEl.textContent = formatTime(countdownSeconds);
+            countdownSeconds--;
+        } else {
+            countdownEl.textContent = "Evento iniciado o finalizado";
+        }
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+});

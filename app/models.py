@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser, User  # type: ignore
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 
 
 # ------------------- Usuario -------------------
@@ -42,6 +43,7 @@ class Venue(models.Model):
     def __str__(self):
         return f"{self.name} - {self.city}"
 
+#-------------------- Event -------------------
 class Event(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -52,6 +54,11 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def countdown_seconds(self):
+            now = timezone.now()
+            diff = (self.scheduled_at - now).total_seconds()
+            return int(diff) if diff > 0 else 0
+    
     def __str__(self):
         return self.title
 
@@ -98,7 +105,7 @@ class Event(models.Model):
             self.categories.set(categories)
 
         self.save()
-
+#---------------------------------------
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
