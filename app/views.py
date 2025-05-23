@@ -232,7 +232,7 @@ def event_form(request, id=None):
         [year, month, day] = date.split("-")
         [hour, minutes] = time.split(":")
         scheduled_at = timezone.make_aware(
-            datetime.datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+            datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
         )
 
         venue = get_object_or_404(Venue, pk=venue_id) if venue_id else None

@@ -352,3 +352,49 @@ class EventDeleteViewTest(BaseEventTestCase):
 
         # Verificar que el evento sigue existiendo
         self.assertTrue(Event.objects.filter(pk=self.event1.id).exists())
+
+    def test_event_detail_countdown_is_correct(self):
+        """Test que verifica que el countdown del evento es correcto"""
+        self.client.login(username="regular", password="password123")
+
+        # Evento programado para 2 horas en el futuro
+        future_event = Event.objects.create(
+            title="Evento Futuro",
+            description="Evento para countdown test",
+            scheduled_at=timezone.now() + datetime.timedelta(hours=2),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        future_event.categories.add(self.category)
+
+        response = self.client.get(reverse("event_detail", args=[future_event.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("countdown_seconds", response.context)
+
+        expected_seconds = int((future_event.scheduled_at - timezone.now()).total_seconds())
+        actual_seconds = response.context["countdown_seconds"]
+
+        # Permite una diferencia de hasta 2 segundos por procesamiento
+        self.assertAlmostEqual(actual_seconds, expected_seconds, delta=2)
+
+    def test_event_detail_countdown_expired(self):
+        """Test que verifica que countdown es 0 si el evento ya ocurrió"""
+        self.client.login(username="regular", password="password123")
+
+        # Evento que ya ocurrió
+        past_event = Event.objects.create(
+            title="Evento Pasado",
+            description="Evento ya ocurrido",
+            scheduled_at=timezone.now() - datetime.timedelta(hours=1),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event.categories.add(self.category)
+
+        response = self.client.get(reverse("event_detail", args=[past_event.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("countdown_seconds", response.context)
+
+        self.assertEqual(response.context["countdown_seconds"], 0)

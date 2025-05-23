@@ -176,3 +176,31 @@ class EventModelTest(TestCase):
         self.assertEqual(updated_event.title, original_title)
         self.assertEqual(updated_event.description, new_description)
         self.assertEqual(updated_event.scheduled_at, original_scheduled_at)
+
+    def test_countdown_seconds_future_event(self):
+        """Verifica que countdown_seconds retorna una cantidad positiva para un evento futuro"""
+        future_time = timezone.now() + datetime.timedelta(hours=1)
+        event = Event.objects.create(
+            title="Evento futuro",
+            description="Evento con fecha futura",
+            scheduled_at=future_time,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        countdown = event.countdown_seconds()
+
+        self.assertTrue(countdown > 0)
+        self.assertAlmostEqual(countdown, 3600, delta=5)  # margen de error por diferencia de milisegundos
+
+    def test_countdown_seconds_past_event(self):
+        """Verifica que countdown_seconds retorna 0 si el evento está en el pasado"""
+        past_time = timezone.now() - datetime.timedelta(hours=1)
+        event = Event.objects.create(
+            title="Evento pasado",
+            description="Evento con fecha pasada",
+            scheduled_at=past_time,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        countdown = event.countdown_seconds()
+        self.assertEqual(countdown, 0)
