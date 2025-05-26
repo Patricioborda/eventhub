@@ -324,5 +324,15 @@ class Favorite(models.Model):
         return f"{self.user.username} ♥ {self.event.title}"
 
     def clean(self):
-        if not self.user or not self.event:
+        if self.user_id is None or self.event_id is None: # type: ignore
             raise ValidationError("Usuario y evento deben estar definidos.")
+
+    @classmethod
+    def toggle(cls, user, event):
+        fav = cls.objects.filter(user=user, event=event).first()
+        if fav:
+            fav.delete()
+            return fav, False
+        else:
+            fav = cls.objects.create(user=user, event=event)
+            return fav, True
