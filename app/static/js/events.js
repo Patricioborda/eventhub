@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let h = Math.floor((seconds % (3600 * 24)) / 3600);
         let m = Math.floor((seconds % 3600) / 60);
         let s = seconds % 60;
-        return `${d}d ${h}h ${m}m ${s}s`;
+        return `${d} días ${h} horas ${m} minutos ${s} segundos`; 
     }
 
     function updateCountdown() {

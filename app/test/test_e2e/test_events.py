@@ -16,7 +16,7 @@ class EventBaseTest(BaseE2ETest):
     def setUp(self):
         super().setUp()
 
-        # Crear lugar y categoría (⬅️ ESTO ES NUEVO)
+        # Crear lugar y categoría 
         self.venue = Venue.objects.create(
             name="Centro Cultural",
             address="Calle Falsa 123",
@@ -376,3 +376,72 @@ class EventCRUDTest(EventBaseTest):
 
         # Verificar que el evento eliminado ya no aparece en la tabla
         expect(self.page.get_by_text("Evento de prueba 1")).to_have_count(0)
+
+class EventCountdownTest(EventBaseTest):
+    """Tests para la funcionalidad de cuenta regresiva en detalle de evento"""
+
+    def setUp(self):
+        super().setUp()
+        
+        #  Evento futuro en 1 minuto
+        self.future_date = timezone.now() + datetime.timedelta(minutes=1)
+        self.future_event = Event.objects.create(
+            title="Evento futuro",
+            description="Evento próximo",
+            scheduled_at=self.future_date,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        self.future_event.categories.add(self.category)
+        
+        # Evento pasado
+        self.past_date = timezone.now() - datetime.timedelta(days=1)
+        self.past_event = Event.objects.create(
+            title="Evento pasado",
+            description="Evento que ya ocurrió",
+            scheduled_at=self.past_date,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        self.past_event.categories.add(self.category)
+
+    def test_countdown_visible_for_regular_user(self):
+        """Verifica que usuarios regulares ven la cuenta regresiva"""
+        self.login_user("usuario", "password123")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        countdown = self.page.locator("#countdown")
+        
+        # Esperar a que el contador se cargue
+        countdown.wait_for(timeout=5000)
+        
+        expect(countdown).to_be_visible()
+        expect(countdown).to_have_text(re.compile(r"\d+ días \d+ horas \d+ minutos \d+ segundos"))
+
+    def test_countdown_hidden_for_organizer(self):
+        """Verifica que organizadores NO ven la cuenta regresiva"""
+        self.login_user("organizador", "password123")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        expect(self.page.locator("#countdown")).to_have_count(0)
+
+    def test_expired_event_message(self):
+        """Verifica mensaje cuando el evento ya ocurrió"""
+        self.login_user("usuario", "password123")
+        self.page.goto(f"{self.live_server_url}/events/{self.past_event.id}/")
+        countdown = self.page.locator("#countdown")
+        expect(countdown).to_have_text("Evento iniciado o finalizado")
+
+    def test_countdown_updates_automatically(self):
+        """Verifica que la cuenta regresiva se actualiza cada segundo"""
+        self.login_user("usuario", "password123")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        
+        # Esperar a que aparezca el texto "segundos"
+        self.page.wait_for_selector("#countdown:has-text('segundos')")
+        
+        initial_text = self.page.locator("#countdown").inner_text()
+        
+        # Esperar 2 segundos y verificar cambio
+        self.page.wait_for_timeout(2000)
+        updated_text = self.page.locator("#countdown").inner_text()
+        
+        assert initial_text != updated_text, "La cuenta regresiva no se actualizó"

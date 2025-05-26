@@ -132,8 +132,10 @@ def event_detail(request, id):
 
     countdown_seconds = event.countdown_seconds()
 
-    user = request.user
-    user_is_organizer = user.is_organizer if user.is_authenticated else False
+    user = request.user if request.user.is_authenticated else None
+    
+    # Calcular user_is_organizer correctamente incluso para guest
+    user_is_organizer = user == event.organizer if user else False
 
 
     # ---------- Flags de edición ----------
