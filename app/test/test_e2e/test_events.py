@@ -247,7 +247,7 @@ class EventPermissionsTest(EventBaseTest):
         expect(create_button).to_be_visible()
 
         # Cerrar sesión
-        self.page.get_by_role("button", name="Salir").click()
+        self.page.get_by_role("button", name="Cerrar Sesión").click()
 
         # Iniciar sesión como usuario regular
         self.login_user("usuario", "password123")
@@ -290,7 +290,7 @@ class EventCRUDTest(EventBaseTest):
         self.page.check(f"input[name='categories'][value='{self.category.id}']") # type: ignore
 
         # Enviar el formulario
-        self.page.get_by_role("button", name="Editar Evento").click()
+        self.page.get_by_role("button", name="Crear Evento").click()
 
         # Verificar que redirigió a la página de eventos
         expect(self.page).to_have_url(f"{self.live_server_url}/events/")
