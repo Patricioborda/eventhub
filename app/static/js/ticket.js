@@ -69,4 +69,38 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  formatearNumerosTarjeta(document.getElementById("card_number"));
+  formatearFechaExp(document.getElementById("card_expiry"));
+  validarCVV(document.getElementById("card_cvv"))
 });
+
+function formatearNumerosTarjeta (input){
+  input.addEventListener("input", () => {
+    let numeros = input.value.replace(/\D/g, "").substring(0, 16);
+    numeros = numeros.replace(/(.{4})/g, "$1 ").trim();
+    input.value = numeros;
+  })
+}
+
+function formatearFechaExp (input) {
+  input.addEventListener("input", () => {
+
+    let fecha = input.value.replace (/\D/g, "").substring (0,4);
+    
+    if (fecha.length >= 3){
+      fecha = fecha.replace(/^(\d{2})(\d{1,2})/, "$1/$2");
+    }
+
+    input.value = fecha;
+  })
+}
+
+function validarCVV (input){
+  input.addEventListener("input", () =>{
+
+    let cvv = input.value.replace (/\D/g, "").substring (0,3);
+    input.value = cvv;
+
+  })
+}
