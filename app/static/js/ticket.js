@@ -108,7 +108,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   formatearNumerosTarjeta(document.getElementById("card_number"));
   formatearFechaExp(document.getElementById("card_expiry"));
-  validarCVV(document.getElementById("card_cvv"))
+  validarCVV(document.getElementById("card_cvv"));
 });
 
 function formatearNumerosTarjeta (input){
