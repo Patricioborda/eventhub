@@ -157,7 +157,7 @@ def event_detail(request, id):
             r = form.save(commit=False)
             r.user, r.event = request.user, event
             r.save()
-            return redirect("event_detail", id=event.id)
+            return redirect("event_detail", id=event.id) # type: ignore
 
     # ---------- GET: preparar formulario ----------
     else:
@@ -167,7 +167,7 @@ def event_detail(request, id):
             form = RatingForm()
 
     # ---------- Lista de calificaciones ----------
-    ratings = list(event.ratings.all().order_by("-created_at"))
+    ratings = list(event.ratings.all().order_by("-created_at")) # type: ignore
     if my_rating in ratings:
         ratings.remove(my_rating)
         ratings.insert(0, my_rating)

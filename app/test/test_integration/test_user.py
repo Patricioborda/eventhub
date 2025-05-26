@@ -165,7 +165,7 @@ class LoginViewSuccessTest(LoginViewBaseTest):
         response = self.client.post(self.login_url, self.valid_credentials)
 
         # Verificar redirección a events después del login exitoso
-        self.assertRedirects(response, reverse("events"))
+        self.assertRedirects(response, "/")
 
         # Verificar que el usuario está autenticado
         self.assertEqual(int(self.client.session["_auth_user_id"]), self.test_user.pk)

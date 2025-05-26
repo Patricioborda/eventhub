@@ -37,7 +37,7 @@ class RegistrationE2ETest(BaseE2ETest):
         self.page.click("button[type='submit']")
 
         # Verificar que se redirige a events
-        self.page.wait_for_url(f"{self.live_server_url}/events/*")
+        self.page.wait_for_url(re.compile(f"{self.live_server_url}/events/.*"))
 
         # Verificar que el usuario fue creado en la base de datos
         self.assertTrue(User.objects.filter(username="nuevo_usuario").exists())
@@ -57,7 +57,7 @@ class RegistrationE2ETest(BaseE2ETest):
         self.page.click("button[type='submit']")
 
         # Verificar redirección y verificación en la base de datos
-        self.page.wait_for_url(f"{self.live_server_url}/events/*")
+        self.page.wait_for_url(re.compile(f"{self.live_server_url}/events/.*"))
         self.assertTrue(User.objects.filter(username="nuevo_usuario").exists())
 
     def test_duplicate_email_registration(self):
@@ -132,15 +132,16 @@ class LoginE2ETest(BaseE2ETest):
 
     def test_successful_login(self):
         """Verifica el proceso de login exitoso"""
-        # Crear un usuario para hacer login
         user = self.create_test_user()
-
-        # Utilizar el método auxiliar para iniciar sesión
         self.login_user(user.username, "password123")
 
-        # Verificar que se redirige a events
-        self.page.wait_for_url(f"{self.live_server_url}/events/*")
+        self.page.wait_for_url(f"{self.live_server_url}/")
 
+        # Verificar que el navbar muestra opciones de usuario logueado
+        navbar = self.page.locator("nav")
+        expect(navbar).to_contain_text("Mis Tickets")
+        expect(navbar).to_contain_text("Cerrar Sesión")
+        
     def test_invalid_credentials_login(self):
         """Verifica el intento de login con credenciales inválidas"""
         self.login_user("usuario_inexistente", "password_incorrecto")
