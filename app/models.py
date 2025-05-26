@@ -59,12 +59,25 @@ class Event(models.Model):
     def validate(cls, title, description, venue, scheduled_at, categories):
         errors = {}
 
-        if not title:
+        # Validar título
+        if not title or title.strip() == "":
             errors["title"] = "Por favor ingrese un título"
 
-        if not description:
+        # Validar descripción
+        if not description or description.strip() == "":
             errors["description"] = "Por favor ingrese una descripción"
 
+        # Validar fecha y hora futura
+        if not scheduled_at:
+            errors["scheduled_at"] = "Debe ingresar una fecha y hora para el evento"
+        elif scheduled_at < timezone.now():
+            errors["scheduled_at"] = "La fecha y hora del evento deben ser futuras"
+
+        # Validar venue
+        if not venue:
+            errors["venue"] = "Debe seleccionar un lugar (venue) para el evento"
+
+        # Validar categorías
         if not categories or len(categories) == 0:
             errors["categories"] = "Por favor seleccione al menos una categoría"
 

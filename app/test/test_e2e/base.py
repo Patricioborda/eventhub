@@ -6,8 +6,8 @@ from playwright.sync_api import sync_playwright
 from app.models import User
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-headless = os.environ.get("HEADLESS", 1) == 1
-slow_mo = os.environ.get("SLOW_MO", 0)
+headless = False
+slow_mo = 250
 
 
 class BaseE2ETest(StaticLiveServerTestCase):
@@ -17,7 +17,11 @@ class BaseE2ETest(StaticLiveServerTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=headless, slow_mo=int(slow_mo))
+        cls.browser = cls.playwright.chromium.launch(
+            headless=headless,
+            slow_mo=int(slow_mo),
+            channel="chrome"  
+        )
 
     @classmethod
     def tearDownClass(cls):
