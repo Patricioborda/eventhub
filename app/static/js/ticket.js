@@ -53,6 +53,42 @@ function validarPago() {
     return false; // Evita que se envíe el formulario
   }
 
+   // Validar número de tarjeta
+  const tarjeta = document.getElementById('card_number').value.replace(/\s/g, '');
+  if (tarjeta.length !== 16) {
+    Swal.fire({
+      title: 'Error',
+      text: 'El número de tarjeta debe tener exactamente 16 dígitos.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
+  // Validar formato MM/AA
+  const expiry = document.getElementById('card_expiry').value;
+  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
+    Swal.fire({
+      title: 'Error',
+      text: 'La fecha de expiración debe tener el formato MM/AA.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
+  // Validar CVV
+  const cvv = document.getElementById('card_cvv').value;
+  if (!/^\d{3}$/.test(cvv)) {
+    Swal.fire({
+      title: 'Error',
+      text: 'El código de seguridad (CVV) debe tener 3 dígitos numéricos.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
   return true;  // Si todo está bien, se envía el formulario
 }
 
