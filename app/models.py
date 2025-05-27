@@ -384,15 +384,3 @@ class SatisfactionSurvey(models.Model):
         # Validar que el rating sea requerido
         if not self.rating:
             raise ValidationError({'rating': 'La calificación es obligatoria'})
-
-        # Validar que el usuario no sea organizador
-        if self.user.is_organizer:
-            raise ValidationError('Los organizadores no pueden realizar encuestas de satisfacción')
-        
-        # Validar que el ticket pertenezca al usuario
-        if self.ticket.user != self.user:
-            raise ValidationError('Solo puedes realizar encuestas para tickets que hayas comprado')
-        
-        # Validar que el ticket pertenezca al evento
-        if self.ticket.event != self.event:
-            raise ValidationError('El ticket debe pertenecer al evento especificado')

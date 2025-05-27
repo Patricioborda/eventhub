@@ -296,14 +296,20 @@ class SatisfactionSurveyForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        
         # Validar que el rating esté presente
         if not cleaned_data.get('rating'):
             self.add_error('rating', 'Por favor, selecciona una calificación')
-        
         # Validar que no exista una encuesta previa para este ticket
         if self.ticket and self.user:
             if SatisfactionSurvey.objects.filter(ticket=self.ticket, user=self.user).exists():
                 raise ValidationError('Ya has realizado una encuesta para este ticket')
-        
+            # Validar que el usuario no sea organizador
+            if self.user.is_organizer:
+                raise ValidationError('Los organizadores no pueden realizar encuestas de satisfacción')
+            # Validar que el ticket pertenezca al usuario
+            if self.ticket.user != self.user:
+                raise ValidationError('Solo puedes realizar encuestas para tickets que hayas comprado')
+            # Validar que el ticket pertenezca al evento
+            if self.event and self.ticket.event != self.event:
+                raise ValidationError('El ticket debe pertenecer al evento especificado')
         return cleaned_data
