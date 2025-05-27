@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/survey.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="card shadow-sm" style="border-radius: 1.2rem;">
+                <div class="card-body py-4 px-5">
+                    <h2 class="card-title text-center mb-4 text-dark fw-bold" style="font-size:2.3rem;">Encuesta de Satisfacción</h2>
+                    <p class="text-center text-muted mb-4" style="font-size:1.1rem;">
+                        Gracias por tu compra. Nos gustaría conocer tu opinión sobre tu experiencia.
+                    </p>
+
+                    <form method="POST" class="vstack gap-4">
+                        {% csrf_token %}
+                        <!-- Rating -->
+                        <div>
+                            <label class="form-label text-dark" style="font-weight: 500;">{{ form.rating.label }}</label>
+                            <div class="star-rating" data-rating-current="{{ form.rating.value|default:'0' }}">
+                                {% with form.rating.value|default:"0"|add:"0" as rating_val %}
+                                    {% for i in "12345" %}
+                                        <input type="radio"
+                                               class="d-none"
+                                               name="rating"
+                                               value="{{ forloop.counter }}"
+                                               id="star{{ forloop.counter }}"
+                                               {% if rating_val|stringformat:"s" == forloop.counter|stringformat:"s" %}checked{% endif %}>
+                                        <label for="star{{ forloop.counter }}"
+                                               class="star fs-3"
+                                               role="button">
+                                            <i class="bi {% if forloop.counter <= rating_val %}bi-star-fill text-warning{% else %}bi-star{% endif %}"></i>
+                                        </label>
+                                    {% endfor %}
+                                {% endwith %}
+                            </div>
+                            {% if form.rating.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.rating.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Observations -->
+                        <div>
+                            <label for="{{ form.observations.id_for_label }}" class="form-label text-dark" style="font-weight: 500;">
+                                {{ form.observations.label }}
+                            </label>
+                            {{ form.observations }}
+                            {% if form.observations.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.observations.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Máximo 500 caracteres
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                Enviar Encuesta
+                            </button>
+                            <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary">
+                                Omitir por ahora
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Actualizar estrellas al hacer hover y seleccionar
+    const stars = document.querySelectorAll('.star');
+    const radios = document.querySelectorAll('input[name="rating"]');
+    function updateStars(value) {
+        stars.forEach((star, idx) => {
+            const icon = star.querySelector('i');
+            if (idx < value) {
+                icon.classList.add('text-warning');
+                icon.classList.remove('text-secondary');
+            } else {
+                icon.classList.remove('text-warning');
+                icon.classList.add('text-secondary');
+            }
+        });
+    }
+    stars.forEach((star, idx) => {
+        star.addEventListener('mouseover', () => updateStars(idx + 1));
+        star.addEventListener('focus', () => updateStars(idx + 1));
+        star.addEventListener('click', () => {
+            radios[idx].checked = true;
+            updateStars(idx + 1);
+        });
+    });
+    document.querySelector('.star-rating').addEventListener('mouseleave', () => {
+        const checked = document.querySelector('input[name="rating"]:checked');
+        updateStars(checked ? parseInt(checked.value) : 0);
+    });
+    // Inicializar con el valor actual
+    const checked = document.querySelector('input[name="rating"]:checked');
+    updateStars(checked ? parseInt(checked.value) : 0);
+});
+</script>
+{% endblock %} 
