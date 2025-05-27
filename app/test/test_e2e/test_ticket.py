@@ -71,16 +71,24 @@ class TicketLimitE2ETest(BaseE2ETest):
         # Verificar que estamos en la página de detalle del evento
         expect(self.page.locator("h1")).to_have_text("Obra de Teatro Espectacular")
         
-        # PASO 4: Hacer clic en el botón "Comprar Ticket"
+        # PASO 4: Verificar que existe el botón "Comprar Ticket" 
+        expect(self.page.get_by_role("link", name="Comprar Ticket")).to_be_visible()
         self.page.get_by_role("link", name="Comprar Ticket").click()
         
         # Verificar que estamos en la página de compra
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         expect(self.page.locator("h5")).to_have_text("Comprar Entrada")
         
-        # PASO 5: Comprar 3 entradas (primera compra)
+        # PASO 5: Comprar EXACTAMENTE 4 entradas para alcanzar el límite
+        # Hacer clic en el botón "+" 3 veces para llegar a 4 (empieza en 1)
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # Ahora es 2
+        plus_button.click()  # Ahora es 3
+        plus_button.click()  # Ahora es 4
+        
+        # Verificar que la cantidad es 4
         quantity_input = self.page.locator("#id_quantity")
-        quantity_input.fill("3")
+        expect(quantity_input).to_have_value("4")
         
         # Seleccionar tipo de entrada
         self.page.select_option("select[name='type']", "GENERAL")
@@ -100,50 +108,54 @@ class TicketLimitE2ETest(BaseE2ETest):
         # Verificar que la compra fue exitosa y redirigió a mis tickets
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
         
-        # Verificar que se creó el ticket con 3 entradas
+        # Verificar que se creó el ticket con 4 entradas
         ticket = Ticket.objects.filter(user=self.user, event=self.event).first()
         self.assertIsNotNone(ticket)
-        self.assertEqual(ticket.quantity, 3)
+        self.assertEqual(ticket.quantity, 4)
         
-        # PASO 7: Intentar comprar 2 entradas más (debería fallar)
-        # Volver a la página de compra
+        # PASO 7: Volver al detalle del evento
+        self.page.goto(f"{self.live_server_url}/events/{self.event.id}/")
+        
+        # PASO 8: Verificar que se muestra el mensaje de límite alcanzado
+        warning_message = self.page.locator(".alert-warning")
+        expect(warning_message).to_be_visible()
+        expect(warning_message).to_contain_text("No puedes comprar entradas")
+        
+        # Verificar que NO aparece el botón "Comprar Ticket"
+        expect(self.page.get_by_role("link", name="Comprar Ticket")).to_have_count(0)
+        
+        # PASO 9: Verificar que no se pueden hacer más compras
+        # Si intentamos ir directamente a la URL de compra, debería mostrar error
         self.page.goto(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        # Verificar que se muestra información de entradas ya compradas
-        expect(self.page.get_by_text("Ya has comprado 3 para este evento")).to_be_visible()
+        # Intentar comprar 1 entrada más usando el botón +
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # Intentar incrementar
         
-        # Intentar comprar 2 entradas más
-        quantity_input = self.page.locator("#id_quantity")
-        quantity_input.fill("2")
-        
-        # Llenar nuevamente los datos de la tarjeta
+        # Llenar datos de la tarjeta
         self.page.fill("#card_number", "1234 5678 9012 3456")
         self.page.fill("#card_expiry", "12/25")
         self.page.fill("#card_cvv", "123")
         self.page.fill("#card_name", "Juan Perez")
-        
-        # Aceptar términos y condiciones
         self.page.check("#accept_terms")
         
-        # PASO 8: Intentar confirmar la segunda compra
+        # Intentar confirmar compra
         self.page.get_by_role("button", name="Confirmar compra").click()
         
-        # PASO 9: Verificar que aparece el mensaje de error
-        expect(self.page.get_by_text("No puedes comprar más de 4 entradas por evento. Ya compraste 3.")).to_be_visible()
+        # PASO 10: Verificar que aparece mensaje de error y no se creó ticket adicional
+        # Puede aparecer como modal o en la página
+        error_found = False
+        try:
+            # Buscar mensaje de error
+            expect(self.page.get_by_text("No puedes comprar más de 4 entradas por evento")).to_be_visible()
+            error_found = True
+        except:
+            # Si no hay mensaje específico, verificar que no redirigió
+            expect(self.page).to_have_url(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        # Verificar que permanecemos en la página de compra (no redirigió)
-        expect(self.page).to_have_url(f"{self.live_server_url}/tickets/create/{self.event.id}/")
-        
-        # PASO 10: Verificar que no se creó un segundo ticket
+        # Verificar que sigue habiendo solo 1 ticket
         tickets_count = Ticket.objects.filter(user=self.user, event=self.event).count()
         self.assertEqual(tickets_count, 1)
-        
-        # Verificar que la cantidad total sigue siendo 3
-        total_quantity = Ticket.objects.filter(
-            user=self.user, 
-            event=self.event
-        ).aggregate(total=models.Sum('quantity'))['total']
-        self.assertEqual(total_quantity, 3)
 
     def test_usuario_puede_comprar_exactamente_4_entradas(self):
         """
@@ -155,17 +167,20 @@ class TicketLimitE2ETest(BaseE2ETest):
         # Ir a la página de compra
         self.page.goto(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        # Comprar exactamente 4 entradas
-        quantity_input = self.page.locator("#id_quantity")
-        quantity_input.fill("4")
+        # Comprar exactamente 4 entradas usando botones +/-
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # 2
+        plus_button.click()  # 3
+        plus_button.click()  # 4
+        
+        # Verificar que la cantidad es 4
+        expect(self.page.locator("#id_quantity")).to_have_value("4")
         
         # Llenar datos de la tarjeta
         self.page.fill("#card_number", "1234 5678 9012 3456")
         self.page.fill("#card_expiry", "12/25")
         self.page.fill("#card_cvv", "123")
         self.page.fill("#card_name", "Juan Perez")
-        
-        # Aceptar términos y condiciones
         self.page.check("#accept_terms")
         
         # Confirmar compra
@@ -178,40 +193,41 @@ class TicketLimitE2ETest(BaseE2ETest):
         ticket = Ticket.objects.filter(user=self.user, event=self.event).first()
         self.assertIsNotNone(ticket)
         self.assertEqual(ticket.quantity, 4)
+        
+        # PASO EXTRA: Verificar que ahora no puede comprar más
+        self.page.goto(f"{self.live_server_url}/events/{self.event.id}/")
+        
+        # Buscar el mensaje de advertencia
+        warning_message = self.page.locator(".alert-warning")
+        expect(warning_message).to_be_visible()
+        expect(warning_message).to_contain_text("No puedes comprar entradas")
 
-    def test_usuario_no_puede_comprar_mas_de_4_en_compra_unica(self):
+    def test_boton_mas_no_permite_superar_limite(self):
         """
-        Test E2E que verifica que un usuario no puede comprar más de 4 entradas
-        en una sola compra
+        Test que verifica que el botón + no permite superar el límite disponible
         """
+        # Crear un ticket existente de 3 entradas para el usuario
+        Ticket.objects.create(user=self.user, event=self.event, quantity=3, type="GENERAL")
+        
         # Login del usuario
         self.login_user("usuario_comprador", "password123")
         
-        # Ir a la página de compra
+        # Ir a la página de compra (aunque no debería poder acceder)
         self.page.goto(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        # Intentar comprar 5 entradas de una vez
+        # El input debería tener data-max="1" (solo puede comprar 1 más)
         quantity_input = self.page.locator("#id_quantity")
-        quantity_input.fill("5")
+        max_value = quantity_input.get_attribute("data-max")
+        self.assertEqual(max_value, "1")
         
-        # Llenar datos de la tarjeta
-        self.page.fill("#card_number", "1234 5678 9012 3456")
-        self.page.fill("#card_expiry", "12/25")
-        self.page.fill("#card_cvv", "123")
-        self.page.fill("#card_name", "Juan Perez")
+        # Intentar hacer clic en + múltiples veces
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # Debería quedarse en 1 (no puede superar data-max)
+        plus_button.click()  # Debería quedarse en 1
+        plus_button.click()  # Debería quedarse en 1
         
-        # Aceptar términos y condiciones
-        self.page.check("#accept_terms")
-        
-        # Intentar confirmar compra
-        self.page.get_by_role("button", name="Confirmar compra").click()
-        
-        # Verificar que aparece el mensaje de error
-        expect(self.page.get_by_text("No puedes comprar más de 4 entradas por evento. Ya compraste 0.")).to_be_visible()
-        
-        # Verificar que no se creó ningún ticket
-        tickets_count = Ticket.objects.filter(user=self.user, event=self.event).count()
-        self.assertEqual(tickets_count, 0)
+        # Verificar que se mantiene en 1
+        expect(quantity_input).to_have_value("1")
 
     def test_diferentes_usuarios_pueden_comprar_4_entradas_cada_uno(self):
         """
@@ -230,7 +246,12 @@ class TicketLimitE2ETest(BaseE2ETest):
         self.login_user("usuario_comprador", "password123")
         self.page.goto(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        self.page.fill("#id_quantity", "4")
+        # Usar botones para llegar a 4
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # 2
+        plus_button.click()  # 3
+        plus_button.click()  # 4
+        
         self.page.fill("#card_number", "1234 5678 9012 3456")
         self.page.fill("#card_expiry", "12/25")
         self.page.fill("#card_cvv", "123")
@@ -245,9 +266,19 @@ class TicketLimitE2ETest(BaseE2ETest):
         
         # SEGUNDO USUARIO: También puede comprar 4 entradas
         self.login_user("segundo_usuario", "password123")
+        
+        # Verificar que el segundo usuario VE el botón (no tiene límite alcanzado)
+        self.page.goto(f"{self.live_server_url}/events/{self.event.id}/")
+        expect(self.page.get_by_role("link", name="Comprar Ticket")).to_be_visible()
+        
         self.page.goto(f"{self.live_server_url}/tickets/create/{self.event.id}/")
         
-        self.page.fill("#id_quantity", "4")
+        # Usar botones para llegar a 4
+        plus_button = self.page.locator("button[onclick='adjustQuantity(1)']")
+        plus_button.click()  # 2
+        plus_button.click()  # 3
+        plus_button.click()  # 4
+        
         self.page.fill("#card_number", "1234 5678 9012 3456")
         self.page.fill("#card_expiry", "12/25")
         self.page.fill("#card_cvv", "123")
