@@ -46,10 +46,9 @@
                             <td>{{ survey.ticket.ticket_code }}</td>
                             <td class="w-30" style="min-width: 150px; width: 30%;">
                                 {% if survey.observations %}
-                                    <button type="button" class="btn btn-link p-0" 
-                                            data-bs-toggle="tooltip" 
-                                            data-bs-placement="left" 
-                                            title="{{ survey.observations }}">
+                                    <button type="button" class="btn btn-link p-0 observation-btn"
+                                            data-bs-toggle="modal" data-bs-target="#observationModal"
+                                            data-observacion="{{ survey.observations|escapejs }}">
                                         Ver observaciones
                                     </button>
                                 {% else %}
@@ -76,13 +75,24 @@
     </div>
 </div>
 
+{% include 'app/survey/survey_observation_modal.html' %}
+
 {% block extra_js %}
 <script>
     // Inicializar tooltips de Bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Modal para observaciones: actualiza el texto al abrir
+    var observationModal = document.getElementById('observationModal');
+    observationModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var obsText = button.getAttribute('data-observacion') || '';
+        obsText = obsText.replace(/(\\u000D\\u000A|\\n|\\r|\r\n|\n|\r)/g, '<br>');
+        document.getElementById('observationModalText').innerHTML = obsText;
+    });
 </script>
 {% endblock %}
 
