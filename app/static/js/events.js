@@ -101,3 +101,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
   }
 });
+
+/* ───────── SweetAlert2 para eliminar calificación ───────── */
+document.querySelectorAll('.rating-delete-form').forEach(form => {
+    form.addEventListener('submit', e => {
+      e.preventDefault();                                // cancela envío
+      Swal.fire({
+        title: '¿Eliminar calificación?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, borrar',
+        cancelButtonText: 'Cancelar'
+      }).then(result => {
+        if (result.isConfirmed) {
+          form.submit();                                 // ahora sí POST
+        }
+      });
+    });
+  });
+
+  /* ───────── SweetAlert2: eliminar COMENTARIO ───────── */
+document.querySelectorAll('.comment-delete-form').forEach(form => {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      Swal.fire({
+        title: '¿Eliminar comentario?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, borrar',
+        cancelButtonText: 'Cancelar'
+      }).then(r => { if (r.isConfirmed) form.submit(); });
+    });
+  });
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const countdownEl = document.getElementById('countdown');
+    if (!countdownEl) return;
+
+    let countdownSeconds = parseInt(countdownEl.dataset.seconds);
+
+    function formatTime(seconds) {
+        let d = Math.floor(seconds / (3600 * 24));
+        let h = Math.floor((seconds % (3600 * 24)) / 3600);
+        let m = Math.floor((seconds % 3600) / 60);
+        let s = seconds % 60;
+        return `${d} días ${h} horas ${m} minutos ${s} segundos`; 
+    }
+
+    function updateCountdown() {
+        if (countdownSeconds > 0) {
+            countdownEl.textContent = formatTime(countdownSeconds);
+            countdownSeconds--;
+        } else {
+            countdownEl.textContent = "Evento iniciado o finalizado";
+        }
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+});
+
