@@ -383,4 +383,5 @@ class SatisfactionSurvey(models.Model):
     def clean(self):
         # Validar que el rating sea requerido
         if not self.rating:
-            raise ValidationError({'rating': 'La calificación es obligatoria'})
+            raise ValidationError({'rating': 'La calificación es obligatoria'})        
+       
