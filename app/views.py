@@ -17,6 +17,8 @@ from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
 from datetime import datetime
+from django.db import models
+
 
 from .forms import (
     CategoryForm,
@@ -619,17 +621,50 @@ def ticket_create(request, event_id):
 @login_required
 def ticket_update(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    event = ticket.event
+
     if request.method == 'POST':
         form = TicketForm(request.POST, instance=ticket)
         if form.is_valid():
+            entradas_actuales = Ticket.objects.filter(
+                user=request.user,
+                event=event
+            ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+            nuevas = form.cleaned_data['quantity']
+            total = entradas_actuales + nuevas
+
+            if total > 4:
+                disponibles = 4 - entradas_actuales
+                messages.error(
+                    request,
+                    f"No puedes tener más de 4 entradas por evento. Ya compraste {entradas_actuales}, puedes modificar hasta {disponibles} entradas."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': entradas_actuales,
+                    'entradas_disponibles': disponibles,
+                })
+
             form.save()
             return redirect('ticket_list')
     else:
         form = TicketForm(instance=ticket)
 
+        entradas_actuales = Ticket.objects.filter(
+            user=request.user,
+            event=ticket.event
+        ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+        disponibles = 4 - entradas_actuales
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
+
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': ticket.event
+        'event': ticket.event,
+        'entradas_existentes': entradas_actuales,
+        'entradas_disponibles': disponibles,
     })
 
 
