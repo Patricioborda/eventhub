@@ -584,14 +584,34 @@ def ticket_create(request, event_id):
             ticket = form.save(commit=False)
             ticket.event = event
             ticket.user = request.user
+
+            disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+            existentes = 4 - disponibles
+
+            if ticket.quantity > disponibles:
+                messages.error(
+                    request,
+                    f"No puedes comprar más de 4 entradas por evento. Ya compraste {existentes}."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': existentes,
+                    'entradas_disponibles': disponibles,
+                })
+
             ticket.save()
             return redirect('ticket_list')
     else:
         form = TicketForm()
+        disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+        existentes = 4 - disponibles
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': event
+        'event': event,
+        'entradas_existentes': existentes,
+        'entradas_disponibles': disponibles,
     })
 
 
