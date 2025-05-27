@@ -96,7 +96,7 @@ function validarPago() {
     return false;
   }
 
-  const cantidad = parseInt(document.getElementById("id_quantity").value);
+  /*const cantidad = parseInt(document.getElementById("id_quantity").value);
   const max = parseInt(document.getElementById("id_quantity").dataset.max || 4);
   if (cantidad > max) {
     Swal.fire({
@@ -106,7 +106,7 @@ function validarPago() {
       confirmButtonText: 'Aceptar'
     });
     return false;
-  }
+  }*/
 
   return true;  // Si todo está bien, se envía el formulario
 }
