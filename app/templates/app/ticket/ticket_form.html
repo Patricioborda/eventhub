@@ -16,6 +16,12 @@
           <p><i class="bi bi-geo-alt"></i> {{ event.venue.name }}</p>
           <p><i class="bi bi-person"></i> {{ event.organizer.username }}</p>
 
+          {% if event.remaining_capacity == 0 %}
+          <div class="alert alert-danger text-center">
+            <strong>Entradas agotadas</strong><br>
+            No hay más disponibilidad para este evento.
+          </div>
+          {% else %}
           {% if form.errors %}
           <div class="alert alert-danger">
             <ul>
@@ -30,15 +36,17 @@
 
           <form method="post" onsubmit="return validarPago()">
             {% csrf_token %}
+            <input type="hidden" id="remaining_capacity" value="{{ event.remaining_capacity }}">
 
             <div class="mb-3">
               <label class="form-label">Cantidad de entradas</label>
+              <div id="alerta_entradas" class="alert alert-warning mt-2 d-none" role="alert"></div>
               <div class="input-group">
                 <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity(-1)">-</button>
                 {{ form.quantity }}
                 <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity(1)">+</button>
               </div>
-              <div class="form-text">Disponibles: 120 entradas</div>
+              <div class="form-text">Disponibles: {{ event.remaining_capacity }} entradas</div>
             </div>
 
             <div class="mb-3">
@@ -46,7 +54,7 @@
               {{ form.type }}
             </div>
 
-            <h4 class="mt-4">Método de pago</h5>
+            <h4 class="mt-4">Método de pago</h4>
             <div class="mb-2">
               <label class="form-label">Número de tarjeta</label>
               <input type="text" id="card_number" class="form-control" placeholder="1234 5678 9012 3456">
@@ -76,9 +84,11 @@
             </div>            
             <button type="submit" class="btn btn-success w-100 mt-3">Confirmar compra</button>
           </form>
+          {% endif %}
         </div>
       </div>
     </div>
+
     <div class="col-lg-4">
       <div class="card mb-3">
         <div class="card-header">

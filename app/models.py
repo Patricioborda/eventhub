@@ -61,6 +61,14 @@ class Event(models.Model):
     
     def __str__(self):
         return self.title
+    
+    @property  
+    def remaining_capacity(self) -> int:
+        """
+        Entradas que todavía pueden venderse para este evento.
+        """
+        vendidos = sum(t.quantity for t in self.tickets.all()) 
+        return max(0, self.venue.capacity - vendidos) 
 
     @classmethod
     def validate(cls, title, description, venue, scheduled_at, categories):
@@ -221,10 +229,27 @@ class Ticket(models.Model):
         verbose_name="Tipo de entrada"
     )
 
-    def __str__(self):
-        return f"{self.ticket_code} - {self.type} - {self.event.title}"
+    
+    def clean(self):
+        super().clean()
+        # Si aún no tiene event (ej. commit=False) saltamos validación de cupo
+        if not self.event_id or not self.quantity:
+            return
+        if self.quantity > self.event.remaining_capacity:   # ← sin ()
+            raise ValidationError("No hay suficiente capacidad para este evento.")
+
+    
+    def __str__(self) -> str:
+        """
+        Devuelve una representación segura incluso si todavía
+        no se asignó el evento (commit=False en formularios).
+        """
+        ev_title = getattr(self, "event", None)
+        ev_title = ev_title.title if ev_title else "—"
+        return f"{self.ticket_code or 'N/C'} - {self.type} - {ev_title}"
 
     def save(self, *args, **kwargs):
+        self.full_clean()
         if not self.ticket_code:
             self.ticket_code = str(uuid.uuid4()).replace('-', '')[:10].upper()
         super().save(*args, **kwargs)

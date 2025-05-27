@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
-
+from django.http import HttpResponseBadRequest 
 from django.views.decorators.http import require_POST
 from datetime import datetime
 
@@ -587,21 +587,43 @@ def ticket_list_organizer(request):
 @login_required
 def ticket_create(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
+    cupo_restante = event.remaining_capacity
 
-    if request.method == 'POST':
+    # ── 1) SIN CUPOS ──────────────────────────────────────────────
+    if cupo_restante == 0:
+        # ➜  GET  ▸ mostramos template con alerta + toast
+        if request.method == "GET":
+            messages.error(request, "Cupo agotado")          # 🥳
+            return render(request, "app/ticket/ticket_form.html", {
+                "form": TicketForm(),
+                "event": event,
+                "sold_out": True,            
+            })
+
+        # ➜  POST  ▸ devolvemos 400 (ajax) o lo que prefieras
+        return HttpResponseBadRequest('Cupo agotado')        
+
+    # ── 2) HAY CUPOS ─────────────────────────────────────────────
+    if request.method == "POST":
         form = TicketForm(request.POST)
         if form.is_valid():
             ticket = form.save(commit=False)
-            ticket.event = event
-            ticket.user = request.user
-            ticket.save()
-            return redirect('ticket_list')
+            if ticket.quantity > cupo_restante:
+                form.add_error("quantity", "Cupo insuficiente para la cantidad seleccionada.")
+                messages.warning(request, "Cupo insuficiente para la cantidad seleccionada.")
+            else:
+                ticket.event = event
+                ticket.user = request.user
+                ticket.save()
+                messages.success(request, "¡Compra realizada con éxito!")
+                return redirect("ticket_list")
     else:
         form = TicketForm()
 
-    return render(request, 'app/ticket/ticket_form.html', {
-        'form': form,
-        'event': event
+    return render(request, "app/ticket/ticket_form.html", {
+        "form":  form,
+        "event": event,
+        "sold_out": False,
     })
 
 
