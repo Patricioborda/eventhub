@@ -102,6 +102,11 @@
                 {% navbar_link 'venue_list' 'Ubicaciones' %}
               </li>
             {% endif %}
+            {% if user.is_staff %}
+              <li class="nav-item">
+                {% navbar_link 'survey_list' 'Encuestas' %}
+              </li>
+            {% endif %}
 
             {# Notificaciones #}
             <li class="nav-item position-relative">

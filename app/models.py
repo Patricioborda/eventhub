@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 # ------------------- Usuario -------------------
@@ -343,3 +344,44 @@ class Favorite(models.Model):
         else:
             fav = cls.objects.create(user=user, event=event)
             return fav, True
+
+# ------------------- Encuesta de satisfacción -------------------
+class SatisfactionSurvey(models.Model):
+    RATING_CHOICES = [
+        (1, '1 estrella'),
+        (2, '2 estrellas'),
+        (3, '3 estrellas'),
+        (4, '4 estrellas'),
+        (5, '5 estrellas'),
+    ]
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    rating = models.IntegerField(
+        choices=RATING_CHOICES,
+        validators=[
+            MinValueValidator(1, message='La calificación mínima es 1 estrella'),
+            MaxValueValidator(5, message='La calificación máxima es 5 estrellas')
+        ],
+        null=False,
+        blank=False,
+        help_text='La calificación es obligatoria (1-5 estrellas)'
+    )
+    observations = models.TextField(blank=True, null=True, max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('ticket', 'user')  # Un usuario solo puede hacer una encuesta por ticket
+        ordering = ['-created_at']
+        verbose_name = 'Encuesta de satisfacción'
+        verbose_name_plural = 'Encuestas de satisfacción'
+
+    def __str__(self):
+        return f"Encuesta de {self.user.username} - {self.rating}★ - {self.event.title}"
+
+    def clean(self):
+        # Validar que el rating sea requerido
+        if not self.rating:
+            raise ValidationError({'rating': 'La calificación es obligatoria'})        
+       
