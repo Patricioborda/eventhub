@@ -148,4 +148,18 @@ class SurveyRealFlowTest(SurveyBaseTest):
         from app.models import SatisfactionSurvey
         survey = SatisfactionSurvey.objects.get(ticket=ticket)
         self.assertEqual(survey.rating, 4)
-        self.assertTrue(survey.observations is None or survey.observations == "") 
+        self.assertTrue(survey.observations is None or survey.observations == "")
+
+    def test_admin_can_see_survey_list(self):
+        """El usuario administrador puede acceder al panel de encuestas desde el navbar y ver la tabla/listado"""
+        from app.models import User
+        # Crear usuario admin si no existe
+        if not User.objects.filter(username="admin").exists():
+            User.objects.create_superuser(username="admin", email="admin@example.com", password="admin")
+        # Iniciar sesión como admin
+        self.login_user("admin", "admin")
+        # Acceder a Encuestas desde el navbar
+        self.page.get_by_role("link", name="Encuestas").click()
+        # Verificar que la tabla/listado de encuestas es visible
+        expect(self.page.get_by_text("Panel de Encuestas de Satisfacción")).to_be_visible()
+        expect(self.page.locator("table")).to_be_visible() 
