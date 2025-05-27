@@ -315,3 +315,31 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.rating}★ - {self.title} ({self.user.username})"
+
+
+from django.core.exceptions import ValidationError
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorites")
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="favorited_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'event')
+
+    def __str__(self):
+        return f"{self.user.username} ♥ {self.event.title}"
+
+    def clean(self):
+        if self.user_id is None or self.event_id is None: # type: ignore
+            raise ValidationError("Usuario y evento deben estar definidos.")
+
+    @classmethod
+    def toggle(cls, user, event):
+        fav = cls.objects.filter(user=user, event=event).first()
+        if fav:
+            fav.delete()
+            return fav, False
+        else:
+            fav = cls.objects.create(user=user, event=event)
+            return fav, True

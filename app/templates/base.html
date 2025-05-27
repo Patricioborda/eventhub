@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="{% static 'css/ticket.css' %}?v=20250508">
     <link rel="stylesheet" href="{% static 'css/comments.css' %}?v=20250508">
     <link rel="stylesheet" href="{% static 'css/ratings.css' %}?v=20250509">
+    <link rel="stylesheet" href="{% static 'css/favorites.css' %}?v=20250518">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
@@ -114,6 +115,11 @@
             
               <div id="notifDropdown" class="custom-dropdown"></div>
             </li>
+            <li class="nav-item position-relative">
+              <a href="{% url 'favorites_list' %}" title="Mis favoritos" class="btn notif-toggle">
+                <i class="bi bi-star-fill fs-5" style="color: gold;"></i>
+              </a>
+            </li>
           </ul>
 
           {# Cerrar sesión #}
@@ -157,11 +163,13 @@
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- JS general y por módulo -->
+    <script src="{% static 'js/csrf.js' %}"></script>
     <script src="{% static 'js/main.js' %}"></script>
     <script src="{% static 'js/notifications.js' %}"></script>
     <script src="{% static 'js/events.js' %}"></script>
     <script src="{% static 'js/accounts.js' %}"></script>
     <script src="{% static 'js/ticket.js' %}"></script>
+    <script src="{% static 'js/favorite.js' %}"></script>
 </body>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq"
