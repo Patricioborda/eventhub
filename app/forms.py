@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue
+from .models import Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue, SatisfactionSurvey
 
 
 class CommentForm(forms.ModelForm):
@@ -256,3 +256,54 @@ class RatingForm(forms.ModelForm):
             'rating': 'Tu calificación *',
             'text': 'Tu reseña (opcional)',
         }
+
+# --- Formulario de Encuesta de Satisfacción ---
+class SatisfactionSurveyForm(forms.ModelForm):
+    class Meta:
+        model = SatisfactionSurvey
+        fields = ['rating', 'observations']
+        widgets = {
+            'rating': forms.RadioSelect(
+                attrs={'class': 'star-rating'},
+                choices=SatisfactionSurvey.RATING_CHOICES
+            ),
+            'observations': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'rows': 4,
+                    'placeholder': 'Comparte tu experiencia con la compra de tickets (opcional)',
+                    'maxlength': '500'
+                }
+            )
+        }
+        labels = {
+            'rating': '¿Cómo calificarías tu experiencia usando nuestros servicios? *',
+            'observations': 'Observaciones (opcional)'
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.event = kwargs.pop('event', None)
+        self.ticket = kwargs.pop('ticket', None)
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Agregar clases Bootstrap y validación HTML5
+        for field in self.fields.values():
+            if not isinstance(field.widget, forms.RadioSelect):
+                field.widget.attrs.update({'class': 'form-control'})
+            if field.required:
+                field.widget.attrs.update({'required': 'required'})
+
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Validar que el rating esté presente
+        if not cleaned_data.get('rating'):
+            self.add_error('rating', 'Por favor, selecciona una calificación')
+        
+        # Validar que no exista una encuesta previa para este ticket
+        if self.ticket and self.user:
+            if SatisfactionSurvey.objects.filter(ticket=self.ticket, user=self.user).exists():
+                raise ValidationError('Ya has realizado una encuesta para este ticket')
+        
+        return cleaned_data
