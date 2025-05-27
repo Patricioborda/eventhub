@@ -49,10 +49,10 @@
           <p class="card-text"><i class="bi bi-person"></i> {{ event.organizer.username }}</p>
         </div>
         <div class="card-footer d-flex justify-content-between align-items-center">
-          <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" title="Ver detalle">
+          <a href="{% url 'event_detail' event.id %}" class="btn btn-sm btn-outline-primary me-2" aria-label="Quitar de favoritos" title="Ver detalle">
             <i class="bi bi-eye"></i>
           </a>
-          <button class="btn btn-sm btn-fav-remove" title="Quitar de favoritos" data-event-id="{{ event.id }}">
+          <button class="btn btn-sm btn-fav-remove" title="Quitar de favoritos" aria-label="Quitar de favoritos" data-event-id="{{ event.id }}">
             <i class="bi bi-star-fill text-warning fav-glow"></i>
           </button>
         </div>

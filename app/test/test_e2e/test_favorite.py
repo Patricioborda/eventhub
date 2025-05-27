@@ -45,7 +45,7 @@ class TestFavoriteE2E(BaseE2ETest):
         self.page.get_by_role("button", name="Marcar como favorito").click()
 
         # Verificar que se ve como favorita (estrella llena)
-        expect(self.page.locator("i.bi-star-fill")).to_have_class(re.compile("text-warning"))
+        expect(self.page.locator("button.btn-fav-toggle i.bi-star-fill")).to_have_class(re.compile("text-warning"))
 
         # Ir a la vista de favoritos
         self.page.goto(f"{self.live_server_url}/favorites/")
@@ -59,22 +59,31 @@ class TestFavoriteE2E(BaseE2ETest):
         """💔 Elimina un favorito y verifica que aparezca el estado vacío"""
         self.login_user("usuario", "password123")
 
-        # Marcar como favorito primero
+        # Marcar como favorito
         self.page.goto(f"{self.live_server_url}/events/")
         self.page.get_by_role("button", name="Marcar como favorito").click()
 
         # Ir a favoritos
         self.page.goto(f"{self.live_server_url}/favorites/")
 
-        # Quitar de favoritos
-        self.page.get_by_role("button", name="Quitar de favoritos").click()
+        # Forzar vista tabla si está en modo tarjetas
+        toggle_button = self.page.locator("#toggleView")
+        if "Ver como tabla" in toggle_button.inner_text():
+            toggle_button.click()
 
-        # Confirmar el SweetAlert
+        # Buscar la fila con el evento y quitar de favoritos
+        row = self.page.locator("table.table-fav tbody tr").filter(has_text="Show de Humor")
+        remove_button = row.locator("button.btn-fav-remove")
+        remove_button.click()
+
+        # Confirmar SweetAlert
+        self.page.wait_for_selector(".swal2-confirm", timeout=5000)
         self.page.locator(".swal2-confirm").click()
 
         # Verificar mensaje de estado vacío
         expect(self.page.locator(".empty-state")).to_be_visible()
         expect(self.page.locator("h4")).to_have_text("Aún no tenés eventos favoritos")
+
 
     def test_toggle_card_view_and_back(self):
         """🔄 Cambiar de tabla a tarjetas y volver"""
