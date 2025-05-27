@@ -109,6 +109,7 @@ window.addEventListener("DOMContentLoaded", () => {
   formatearNumerosTarjeta(document.getElementById("card_number"));
   formatearFechaExp(document.getElementById("card_expiry"));
   validarCVV(document.getElementById("card_cvv"));
+  validarNombre(document.getElementById("card_name"));
 });
 
 function formatearNumerosTarjeta (input){
@@ -138,5 +139,12 @@ function validarCVV (input){
     let cvv = input.value.replace (/\D/g, "").substring (0,3);
     input.value = cvv;
 
+  })
+}
+
+function validarNombre (input){
+  input.addEventListener("input", () => {
+    let nombre = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
+    input.value = nombre;
   })
 }
