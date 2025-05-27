@@ -1,6 +1,7 @@
+from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
-from app.models import Event, Notification, User, Venue
+from app.models import Event, Notification, Ticket, User, Venue
 
 class NotificationSignalIntegrationTest(TestCase):
     def setUp(self):
@@ -19,13 +20,16 @@ class NotificationSignalIntegrationTest(TestCase):
             name="Sala B", address="Calle 2", city="Ciudad", capacity=150, contact="789123"
         )
 
+        self.event_date = timezone.now() + timezone.timedelta(days=3)  # <-- Guardamos la fecha aquí
+
         self.event = Event.objects.create(
             title="Evento Test",
             description="Evento de integración",
-            scheduled_at=timezone.now() + timezone.timedelta(days=3),
+            scheduled_at=self.event_date,  # Usamos self.event_date acá
             organizer=self.organizer,
             venue=self.venue_old,
         )
+
 
     def test_signal_creates_notification_on_event_change(self):
         # Cambiamos fecha y lugar
@@ -97,3 +101,36 @@ class NotificationSignalIntegrationTest(TestCase):
         self.assertGreater(notifications.count(), 0)
         notif = notifications.first()
         self.assertIn("📍", notif.message) # type: ignore
+
+    def test_only_ticket_holders_receive_notification(self):
+        user_with_ticket = User.objects.create_user(username="withticket", password="123")
+        Ticket.objects.create(user=user_with_ticket, event=self.event, quantity=1, type='GENERAL')
+
+        user_no_ticket = User.objects.create_user(username="noticket", password="123")
+
+        # Cambia la fecha del evento (o cualquier cambio que dispare la notificación)
+        self.event.scheduled_at = self.event.scheduled_at + timezone.timedelta(days=1)
+        self.event.save()
+
+        # Obtener notificaciones individuales con usuario
+        notified_users_individual = Notification.objects.filter(user__isnull=False).values_list('user_id', flat=True)
+        # Obtener notificaciones masivas para todos los asistentes del evento
+        notify_all_event = Notification.objects.filter(to_all_event_attendees=True, event=self.event)
+
+        # Obtener IDs de usuarios con tickets
+        ticket_holders_ids = Ticket.objects.filter(event=self.event).values_list('user_id', flat=True).distinct()
+
+        # Construir set de usuarios notificados por notificaciones individuales
+        notified_users_set = set(notified_users_individual)
+
+        # Si hay notificación masiva, agrego todos los ticket holders
+        if notify_all_event.exists():
+            notified_users_set.update(ticket_holders_ids)
+
+        print("Usuarios con ticket:", list(ticket_holders_ids))
+        print("Usuarios notificados individuales:", list(notified_users_individual))
+        print("Usuarios notificados totales:", notified_users_set)
+
+        self.assertIn(user_with_ticket.id, notified_users_set, "Usuario con ticket no recibió notificación") # type: ignore
+        self.assertNotIn(user_no_ticket.id, notified_users_set, "Usuario sin ticket recibió notificación") # type: ignore
+        self.assertNotIn(self.organizer.id, notified_users_set, "Organizador recibió notificación") # type: ignore

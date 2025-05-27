@@ -276,7 +276,7 @@ class Notification(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
     # Fecha de creación (para registro)
     created_at = models.DateTimeField(auto_now_add=True)
-    # (Opcional) campo para rastrear el creador de la notificación
+    
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='notifications_created')
     is_read = models.BooleanField("Leída", default=False)
     def clean(self):
