@@ -238,7 +238,8 @@ class Ticket(models.Model):
         verbose_name="Código del ticket"
     )
     quantity = models.PositiveIntegerField(
-        verbose_name="Cantidad de entradas"
+        verbose_name="Cantidad de entradas",
+        default=1
     )
     type = models.CharField(
         max_length=10,
