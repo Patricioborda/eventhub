@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/survey.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <div class="card shadow-sm" style="border-radius: 1.2rem;">
+                <div class="card-body py-4 px-5">
+                    <h2 class="card-title text-center mb-4 text-dark fw-bold" style="font-size:2.3rem;">Encuesta de Satisfacción</h2>
+                    <p class="text-center text-muted mb-4" style="font-size:1.1rem;">
+                        Gracias por tu compra. Nos gustaría conocer tu opinión sobre tu experiencia.
+                    </p>
+
+                    <!-- Mensaje de éxito/error -->
+                    <div id="form-message" class="alert d-none mb-4"></div>
+
+                    <form id="survey-form" method="POST" class="vstack gap-4">
+                        {% csrf_token %}
+                        <!-- Rating -->
+                        <div>
+                            <label class="form-label text-dark" style="font-weight: 500;">{{ form.rating.label }}</label>
+                            <div class="star-rating" data-rating-current="{{ form.rating.value|default:'0' }}">
+                                {% with form.rating.value|default:"0"|add:"0" as rating_val %}
+                                    {% for i in "12345" %}
+                                        <input type="radio"
+                                               class="d-none"
+                                               name="rating"
+                                               value="{{ forloop.counter }}"
+                                               id="star{{ forloop.counter }}"
+                                               {% if rating_val|stringformat:"s" == forloop.counter|stringformat:"s" %}checked{% endif %}>
+                                        <label for="star{{ forloop.counter }}"
+                                               class="star fs-3"
+                                               role="button">
+                                            <i class="bi {% if forloop.counter <= rating_val %}bi-star-fill text-warning{% else %}bi-star{% endif %}"></i>
+                                        </label>
+                                    {% endfor %}
+                                {% endwith %}
+                            </div>
+                            <div id="rating-error" class="invalid-feedback d-none"></div>
+                        </div>
+
+                        <!-- Observations -->
+                        <div>
+                            <label for="{{ form.observations.id_for_label }}" class="form-label text-dark" style="font-weight: 500;">
+                                {{ form.observations.label }}
+                            </label>
+                            {{ form.observations }}
+                            <div id="observations-error" class="invalid-feedback d-none"></div>
+                            <div class="form-text">
+                                Máximo 500 caracteres
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between gap-2">
+                            <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary">
+                                Omitir por ahora
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submit-button">
+                                Enviar Encuesta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('survey-form');
+    const formMessage = document.getElementById('form-message');
+    const submitButton = document.getElementById('submit-button');
+    const ratingError = document.getElementById('rating-error');
+    const observationsError = document.getElementById('observations-error');
+
+    // Función para mostrar mensajes
+    function showMessage(message, type) {
+        formMessage.textContent = message;
+        formMessage.className = `alert alert-${type} mb-4`;
+        formMessage.classList.remove('d-none');
+    }
+
+    // Función para mostrar errores de campo
+    function showFieldError(field, message) {
+        const errorElement = document.getElementById(`${field}-error`);
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.classList.remove('d-none');
+        }
+    }
+
+    // Función para limpiar errores
+    function clearErrors() {
+        formMessage.classList.add('d-none');
+        ratingError.classList.add('d-none');
+        observationsError.classList.add('d-none');
+    }
+
+    // Actualizar estrellas al hacer hover y seleccionar
+    const stars = document.querySelectorAll('.star');
+    const radios = document.querySelectorAll('input[name="rating"]');
+    
+    function updateStars(value) {
+        stars.forEach((star, idx) => {
+            const icon = star.querySelector('i');
+            if (idx < value) {
+                icon.classList.add('text-warning');
+                icon.classList.remove('text-secondary');
+            } else {
+                icon.classList.remove('text-warning');
+                icon.classList.add('text-secondary');
+            }
+        });
+    }
+
+    stars.forEach((star, idx) => {
+        star.addEventListener('mouseover', () => updateStars(idx + 1));
+        star.addEventListener('focus', () => updateStars(idx + 1));
+        star.addEventListener('click', () => {
+            radios[idx].checked = true;
+            updateStars(idx + 1);
+            clearErrors();
+        });
+    });
+
+    document.querySelector('.star-rating').addEventListener('mouseleave', () => {
+        const checked = document.querySelector('input[name="rating"]:checked');
+        updateStars(checked ? parseInt(checked.value) : 0);
+    });
+
+    // Inicializar con el valor actual
+    const checked = document.querySelector('input[name="rating"]:checked');
+    updateStars(checked ? parseInt(checked.value) : 0);
+
+    // Manejar envío del formulario
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearErrors();
+        submitButton.disabled = true;
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+            console.log('Respuesta del backend:', data);
+
+            if (response.ok && data.success) {
+                showMessage(data.message, 'success');
+                // Redirigir después de 2 segundos
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 2000);
+            } else {
+                // Limpiar errores previos
+                clearErrors();
+                if (data.errors) {
+                    if (data.errors.rating) {
+                        showFieldError('rating', data.errors.rating[0]);
+                        showMessage(data.errors.rating[0], 'danger');
+                    }
+                    if (data.errors.observations) {
+                        showFieldError('observations', data.errors.observations[0]);
+                    }
+                } else {
+                    showMessage(data.error || 'Ha ocurrido un error al enviar la encuesta', 'danger');
+                }
+                submitButton.disabled = false;
+            }
+        } catch (error) {
+            showMessage('Error al procesar la solicitud', 'danger');
+            submitButton.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %} 

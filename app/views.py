@@ -16,6 +16,8 @@ from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
+
+from django.views.decorators.http import require_POST
 from datetime import datetime
 from django.db import models
 
@@ -28,17 +30,20 @@ from .forms import (
     RefundRequestForm,
     TicketForm,
     VenueForm,
+    SatisfactionSurveyForm,
 )
 from .models import (
     Category,
     Comment,
     Event,
+    Favorite,
     Notification,
     Rating,
     RefundRequest,
     Ticket,
     User,
     Venue,
+    SatisfactionSurvey,
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -121,10 +126,16 @@ def privacy_policy(request):
 @login_required
 def events(request):
     events = Event.objects.all().order_by("scheduled_at")
+    # Obtener lista de favoritos del usuario
+    favoritos_ids = request.user.favorites.values_list("event_id", flat=True)
     return render(
         request,
         "app/events.html",
-        {"events": events, "user_is_organizer": request.user.is_organizer},
+        {
+            "events": events, 
+            "user_is_organizer": request.user.is_organizer,
+            "favoritos_ids": list(favoritos_ids)
+        },
     )
 
 
@@ -609,7 +620,10 @@ def ticket_create(request, event_id):
                 })
 
             ticket.save()
-            return redirect('ticket_list')
+            # Guardar el ticket_id en la sesión
+            request.session['last_ticket_id'] = ticket.id
+            messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
+            return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
         disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
@@ -936,3 +950,162 @@ def rating_delete(request, rating_id):
         return redirect(reverse("event_detail", kwargs={"id": event_id}))
 
     return redirect("events")
+
+
+@login_required
+def favorites_list(request):
+    favoritos = Event.objects.filter(favorited_by__user=request.user).order_by("scheduled_at")
+    return render(request, "favorites/list.html", {"events": favoritos})
+
+@require_POST
+@login_required
+def toggle_favorite(request, event_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+
+    event = get_object_or_404(Event, id=event_id)
+
+    if not event:
+        return JsonResponse({"error": "Evento no encontrado"}, status=404)
+
+    favorite, created = Favorite.objects.get_or_create(user=request.user, event=event)
+
+    if not created:
+        favorite.delete()
+        return JsonResponse({"favorito": False})
+    else:
+        return JsonResponse({"favorito": True})
+
+################### feature/satisfaction-survey ################### 
+@login_required
+def survey_create(request, ticket_id):
+    ticket = get_object_or_404(Ticket, pk=ticket_id)
+
+    # Permitir acceso solo si el ticket_id está en la sesión
+    last_ticket_id = request.session.get('last_ticket_id')
+    if last_ticket_id != ticket.id:
+        messages.error(request, 'No tienes permiso para acceder a esta encuesta.')
+        return redirect('ticket_list')
+
+    # Verificar que el usuario sea el dueño del ticket
+    if ticket.user != request.user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permiso para realizar esta acción'
+            }, status=403)
+        messages.error(request, 'No tienes permiso para realizar esta acción')
+        return redirect('events')
+    
+    # Verificar que no exista una encuesta previa
+    if SatisfactionSurvey.objects.filter(ticket=ticket, user=request.user).exists():
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya has realizado una encuesta para este ticket'
+            }, status=400)
+        messages.info(request, 'Ya has realizado una encuesta para este ticket')
+        return redirect('event_detail', id=ticket.event.id)
+
+    if request.method == 'POST':
+        form = SatisfactionSurveyForm(
+            request.POST,
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+        if form.is_valid():
+            survey = form.save(commit=False)
+            survey.event = ticket.event
+            survey.ticket = ticket
+            survey.user = request.user
+            survey.save()
+            # Eliminar el ticket_id de la sesión tras POST exitoso
+            if 'last_ticket_id' in request.session:
+                del request.session['last_ticket_id']
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.',
+                    'redirect_url': reverse('ticket_list')
+                })
+            messages.success(request, '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.')
+            return redirect('ticket_list')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'errors': form.errors
+                }, status=400)
+    else:
+        form = SatisfactionSurveyForm(
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+        # (No eliminar el ticket_id de la sesión en el GET)
+
+    return render(request, 'app/survey/survey_form.html', {
+        'form': form,
+        'ticket': ticket,
+        'event': ticket.event
+    })
+
+@login_required
+def survey_list(request):
+    """
+    Vista para listar todas las encuestas de satisfacción.
+    Solo accesible para administradores.
+    """
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('home')
+
+    # Obtener todas las encuestas con información relacionada
+    surveys = SatisfactionSurvey.objects.select_related(
+        'event', 'user', 'ticket'
+    ).order_by('-created_at')
+
+    # Calcular estadísticas
+    total_surveys = surveys.count()
+    avg_rating = surveys.aggregate(
+        avg=models.Avg('rating')
+    )['avg'] or 0
+
+    # Distribución de calificaciones
+    rating_distribution = surveys.values('rating').annotate(
+        count=models.Count('id')
+    ).order_by('rating')
+
+    # Calcular porcentaje para cada rating
+    distribution = []
+    for dist in rating_distribution:
+        percent = (dist['count'] / total_surveys * 100) if total_surveys else 0
+        distribution.append({
+            'rating': dist['rating'],
+            'count': dist['count'],
+            'percent': percent,
+        })
+
+    return render(request, 'app/survey/admin_list.html', {
+        'surveys': surveys,
+        'total_surveys': total_surveys,
+        'avg_rating': round(avg_rating, 1),
+        'rating_distribution': distribution,
+    })
+
+@login_required
+def survey_detail(request, survey_id):
+    """
+    Vista para ver los detalles de una encuesta específica.
+    Solo accesible para administradores o el usuario que la creó.
+    """
+    survey = get_object_or_404(SatisfactionSurvey, pk=survey_id)
+    
+    if not (request.user.is_staff or survey.user == request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('events')
+    
+    return render(request, 'app/survey_detail.html', {
+        'survey': survey
+    })

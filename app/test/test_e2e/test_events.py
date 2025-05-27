@@ -375,8 +375,8 @@ class EventCRUDTest(EventBaseTest):
         expect(rows).to_have_count(initial_count - 1)
 
         # Verificar que el evento eliminado ya no aparece en la tabla
-        expect(self.page.get_by_text("Evento de prueba 1")).to_have_count(0)
 
+        expect(self.page.get_by_text("Evento de prueba 1")).to_have_count(0)
 class EventCountdownTest(EventBaseTest):
     """Tests para la funcionalidad de cuenta regresiva en detalle de evento"""
 
@@ -408,7 +408,7 @@ class EventCountdownTest(EventBaseTest):
     def test_countdown_visible_for_regular_user(self):
         """Verifica que usuarios regulares ven la cuenta regresiva"""
         self.login_user("usuario", "password123")
-        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/") # type: ignore
         countdown = self.page.locator("#countdown")
         
         # Esperar a que el contador se cargue
@@ -420,20 +420,20 @@ class EventCountdownTest(EventBaseTest):
     def test_countdown_hidden_for_organizer(self):
         """Verifica que organizadores NO ven la cuenta regresiva"""
         self.login_user("organizador", "password123")
-        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/") # type: ignore
         expect(self.page.locator("#countdown")).to_have_count(0)
 
     def test_expired_event_message(self):
         """Verifica mensaje cuando el evento ya ocurrió"""
         self.login_user("usuario", "password123")
-        self.page.goto(f"{self.live_server_url}/events/{self.past_event.id}/")
+        self.page.goto(f"{self.live_server_url}/events/{self.past_event.id}/") # type: ignore
         countdown = self.page.locator("#countdown")
         expect(countdown).to_have_text("Evento iniciado o finalizado")
 
     def test_countdown_updates_automatically(self):
         """Verifica que la cuenta regresiva se actualiza cada segundo"""
         self.login_user("usuario", "password123")
-        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/")
+        self.page.goto(f"{self.live_server_url}/events/{self.future_event.id}/") # type: ignore
         
         # Esperar a que aparezca el texto "segundos"
         self.page.wait_for_selector("#countdown:has-text('segundos')")
@@ -445,3 +445,4 @@ class EventCountdownTest(EventBaseTest):
         updated_text = self.page.locator("#countdown").inner_text()
         
         assert initial_text != updated_text, "La cuenta regresiva no se actualizó"
+

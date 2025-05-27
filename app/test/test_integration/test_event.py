@@ -351,7 +351,7 @@ class EventDeleteViewTest(BaseEventTestCase):
         self.assertTrue(response.url.startswith("/accounts/login/")) # type: ignore
 
         # Verificar que el evento sigue existiendo
-        self.assertTrue(Event.objects.filter(pk=self.event1.id).exists())
+        self.assertTrue(Event.objects.filter(pk=self.event1.id).exists()) # type: ignore
 
     def test_event_detail_countdown_is_correct(self):
         """Test que verifica que el countdown del evento es correcto"""
@@ -367,7 +367,7 @@ class EventDeleteViewTest(BaseEventTestCase):
         )
         future_event.categories.add(self.category)
 
-        response = self.client.get(reverse("event_detail", args=[future_event.id]))
+        response = self.client.get(reverse("event_detail", args=[future_event.id])) # type: ignore
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("countdown_seconds", response.context)
@@ -392,7 +392,7 @@ class EventDeleteViewTest(BaseEventTestCase):
         )
         past_event.categories.add(self.category)
 
-        response = self.client.get(reverse("event_detail", args=[past_event.id]))
+        response = self.client.get(reverse("event_detail", args=[past_event.id])) # type: ignore
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("countdown_seconds", response.context)
