@@ -1,10 +1,17 @@
 function adjustQuantity(amount) {
   const input = document.getElementById("id_quantity");
+  const max = parseInt(input.getAttribute("data-max")) || 4;  // Por defecto, 4
   let value = parseInt(input.value || 0);
+
   if (isNaN(value)) value = 0;
-  value = Math.max(1, value + amount);
+
+  value += amount;
+
+  // Limitar entre 1 y max
+  value = Math.max(1, Math.min(value, max));
+
   input.value = value;
-  actualizarResumen(); 
+  actualizarResumen();
 }
 
 function actualizarResumen() {
