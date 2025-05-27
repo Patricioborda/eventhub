@@ -233,6 +233,38 @@ class Ticket(models.Model):
     def entradas_disponibles_para_usuario(cls, user, event):
         cantidad_actual = cls.objects.filter(user=user, event=event).aggregate(models.Sum('quantity'))['quantity__sum'] or 0
         return 4 - cantidad_actual
+    
+    @classmethod
+    def validate(cls, quantity, ticket_type, card_number, card_expiry, card_cvv, card_name):
+        import re
+        errors = {}
+
+        # Validar cantidad
+        if quantity is None or quantity < 1:
+            errors["quantity"] = "La cantidad debe ser al menos 1"
+
+        # Validar tipo
+        if ticket_type not in dict(cls.TICKETS_TYPES):
+            errors["type"] = "Tipo de entrada no válido"
+
+        # Validar número de tarjeta
+        if not card_number or not card_number.replace(" ", "").isdigit() or len(card_number.replace(" ", "")) != 16:
+            errors["card_number"] = "El número de tarjeta debe tener exactamente 16 dígitos"
+
+        # Validar formato de expiración (MM/AA)
+        if not card_expiry or not re.match(r"^(0[1-9]|1[0-2])/\d{2}$", card_expiry):
+            errors["card_expiry"] = "La fecha de expiración debe tener el formato MM/AA"
+
+        # Validar CVV
+        if not card_cvv or not card_cvv.isdigit() or len(card_cvv) != 3:
+            errors["card_cvv"] = "El CVV debe tener exactamente 3 dígitos"
+
+        # Validar nombre
+        if not card_name or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$", card_name):
+            errors["card_name"] = "El nombre debe contener solo letras"
+
+        return errors
+
 
 
 # ------------------- Notificación -------------------
