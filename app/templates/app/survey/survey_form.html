@@ -16,7 +16,10 @@
                         Gracias por tu compra. Nos gustaría conocer tu opinión sobre tu experiencia.
                     </p>
 
-                    <form method="POST" class="vstack gap-4">
+                    <!-- Mensaje de éxito/error -->
+                    <div id="form-message" class="alert d-none mb-4"></div>
+
+                    <form id="survey-form" method="POST" class="vstack gap-4">
                         {% csrf_token %}
                         <!-- Rating -->
                         <div>
@@ -38,11 +41,7 @@
                                     {% endfor %}
                                 {% endwith %}
                             </div>
-                            {% if form.rating.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.rating.errors.0 }}
-                                </div>
-                            {% endif %}
+                            <div id="rating-error" class="invalid-feedback d-none"></div>
                         </div>
 
                         <!-- Observations -->
@@ -51,27 +50,17 @@
                                 {{ form.observations.label }}
                             </label>
                             {{ form.observations }}
-                            {% if form.observations.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.observations.errors }}
-                                </div>
-                            {% endif %}
+                            <div id="observations-error" class="invalid-feedback d-none"></div>
                             <div class="form-text">
                                 Máximo 500 caracteres
                             </div>
                         </div>
 
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger">
-                                {{ form.non_field_errors }}
-                            </div>
-                        {% endif %}
-
                         <div class="d-flex justify-content-between gap-2">
                             <a href="{% url 'ticket_list' %}" class="btn btn-outline-secondary">
                                 Omitir por ahora
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="submit-button">
                                 Enviar Encuesta
                             </button>
                         </div>
@@ -86,9 +75,39 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('survey-form');
+    const formMessage = document.getElementById('form-message');
+    const submitButton = document.getElementById('submit-button');
+    const ratingError = document.getElementById('rating-error');
+    const observationsError = document.getElementById('observations-error');
+
+    // Función para mostrar mensajes
+    function showMessage(message, type) {
+        formMessage.textContent = message;
+        formMessage.className = `alert alert-${type} mb-4`;
+        formMessage.classList.remove('d-none');
+    }
+
+    // Función para mostrar errores de campo
+    function showFieldError(field, message) {
+        const errorElement = document.getElementById(`${field}-error`);
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.classList.remove('d-none');
+        }
+    }
+
+    // Función para limpiar errores
+    function clearErrors() {
+        formMessage.classList.add('d-none');
+        ratingError.classList.add('d-none');
+        observationsError.classList.add('d-none');
+    }
+
     // Actualizar estrellas al hacer hover y seleccionar
     const stars = document.querySelectorAll('.star');
     const radios = document.querySelectorAll('input[name="rating"]');
+    
     function updateStars(value) {
         stars.forEach((star, idx) => {
             const icon = star.querySelector('i');
@@ -101,21 +120,72 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
     stars.forEach((star, idx) => {
         star.addEventListener('mouseover', () => updateStars(idx + 1));
         star.addEventListener('focus', () => updateStars(idx + 1));
         star.addEventListener('click', () => {
             radios[idx].checked = true;
             updateStars(idx + 1);
+            clearErrors();
         });
     });
+
     document.querySelector('.star-rating').addEventListener('mouseleave', () => {
         const checked = document.querySelector('input[name="rating"]:checked');
         updateStars(checked ? parseInt(checked.value) : 0);
     });
+
     // Inicializar con el valor actual
     const checked = document.querySelector('input[name="rating"]:checked');
     updateStars(checked ? parseInt(checked.value) : 0);
+
+    // Manejar envío del formulario
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearErrors();
+        submitButton.disabled = true;
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+            console.log('Respuesta del backend:', data);
+
+            if (response.ok && data.success) {
+                showMessage(data.message, 'success');
+                // Redirigir después de 2 segundos
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 2000);
+            } else {
+                // Limpiar errores previos
+                clearErrors();
+                if (data.errors) {
+                    if (data.errors.rating) {
+                        showFieldError('rating', data.errors.rating[0]);
+                        showMessage(data.errors.rating[0], 'danger');
+                    }
+                    if (data.errors.observations) {
+                        showFieldError('observations', data.errors.observations[0]);
+                    }
+                } else {
+                    showMessage(data.error || 'Ha ocurrido un error al enviar la encuesta', 'danger');
+                }
+                submitButton.disabled = false;
+            }
+        } catch (error) {
+            showMessage('Error al procesar la solicitud', 'danger');
+            submitButton.disabled = false;
+        }
+    });
 });
 </script>
 {% endblock %} 

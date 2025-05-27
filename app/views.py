@@ -925,11 +925,21 @@ def survey_create(request, ticket_id):
     
     # Verificar que el usuario sea el dueño del ticket
     if ticket.user != request.user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permiso para realizar esta acción'
+            }, status=403)
         messages.error(request, 'No tienes permiso para realizar esta acción')
         return redirect('events')
     
     # Verificar que no exista una encuesta previa
     if SatisfactionSurvey.objects.filter(ticket=ticket, user=request.user).exists():
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya has realizado una encuesta para este ticket'
+            }, status=400)
         messages.info(request, 'Ya has realizado una encuesta para este ticket')
         return redirect('event_detail', id=ticket.event.id)
 
@@ -946,8 +956,22 @@ def survey_create(request, ticket_id):
             survey.ticket = ticket
             survey.user = request.user
             survey.save()
-            messages.success(request, '¡Gracias por tu feedback!')
-            return redirect('event_detail', id=ticket.event.id)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.',
+                    'redirect_url': reverse('ticket_list')
+                })
+            
+            messages.success(request, '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.')
+            return redirect('ticket_list')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'errors': form.errors
+                }, status=400)
     else:
         form = SatisfactionSurveyForm(
             event=ticket.event,
