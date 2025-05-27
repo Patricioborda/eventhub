@@ -116,6 +116,21 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("id_type").addEventListener("change", actualizarResumen);
   actualizarResumen();
 
+  const quantityInput = document.getElementById("id_quantity");
+  if (quantityInput) {
+    // Hacer el campo de solo lectura
+    quantityInput.setAttribute("readonly", "true");
+    
+    // Prevenir que se pueda editar manualmente
+    quantityInput.addEventListener("keydown", function(e) {
+      e.preventDefault(); // Bloquear todas las teclas
+    });
+    
+    quantityInput.addEventListener("paste", function(e) {
+      e.preventDefault(); // Bloquear pegar
+    });
+  }
+
   const form = document.querySelector("form");
   if (form) {
     form.addEventListener("submit", (e) => {
