@@ -19,6 +19,7 @@ from django.contrib import messages
 
 from django.views.decorators.http import require_POST
 from datetime import datetime
+from django.db import models
 
 
 from .forms import (
@@ -29,6 +30,7 @@ from .forms import (
     RefundRequestForm,
     TicketForm,
     VenueForm,
+    SatisfactionSurveyForm,
 )
 from .models import (
     Category,
@@ -41,6 +43,7 @@ from .models import (
     Ticket,
     User,
     Venue,
+    SatisfactionSurvey,
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -595,7 +598,8 @@ def ticket_create(request, event_id):
             ticket.event = event
             ticket.user = request.user
             ticket.save()
-            return redirect('ticket_list')
+            messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
+            return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
 
@@ -909,3 +913,109 @@ def toggle_favorite(request, event_id):
         return JsonResponse({"favorito": False})
     else:
         return JsonResponse({"favorito": True})
+
+################### feature/satisfaction-survey ################### 
+@login_required
+def survey_create(request, ticket_id):
+    """
+    Vista para crear una encuesta de satisfacción después de una compra exitosa.
+    Solo se puede acceder si el usuario es el dueño del ticket y no ha realizado una encuesta previa.
+    """
+    ticket = get_object_or_404(Ticket, pk=ticket_id)
+    
+    # Verificar que el usuario sea el dueño del ticket
+    if ticket.user != request.user:
+        messages.error(request, 'No tienes permiso para realizar esta acción')
+        return redirect('events')
+    
+    # Verificar que no exista una encuesta previa
+    if SatisfactionSurvey.objects.filter(ticket=ticket, user=request.user).exists():
+        messages.info(request, 'Ya has realizado una encuesta para este ticket')
+        return redirect('event_detail', id=ticket.event.id)
+
+    if request.method == 'POST':
+        form = SatisfactionSurveyForm(
+            request.POST,
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+        if form.is_valid():
+            survey = form.save(commit=False)
+            survey.event = ticket.event
+            survey.ticket = ticket
+            survey.user = request.user
+            survey.save()
+            messages.success(request, '¡Gracias por tu feedback!')
+            return redirect('event_detail', id=ticket.event.id)
+    else:
+        form = SatisfactionSurveyForm(
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+
+    return render(request, 'app/survey/survey_form.html', {
+        'form': form,
+        'ticket': ticket,
+        'event': ticket.event
+    })
+
+@login_required
+def survey_list(request):
+    """
+    Vista para listar todas las encuestas de satisfacción.
+    Solo accesible para administradores.
+    """
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('home')
+
+    # Obtener todas las encuestas con información relacionada
+    surveys = SatisfactionSurvey.objects.select_related(
+        'event', 'user', 'ticket'
+    ).order_by('-created_at')
+
+    # Calcular estadísticas
+    total_surveys = surveys.count()
+    avg_rating = surveys.aggregate(
+        avg=models.Avg('rating')
+    )['avg'] or 0
+
+    # Distribución de calificaciones
+    rating_distribution = surveys.values('rating').annotate(
+        count=models.Count('id')
+    ).order_by('rating')
+
+    # Calcular porcentaje para cada rating
+    distribution = []
+    for dist in rating_distribution:
+        percent = (dist['count'] / total_surveys * 100) if total_surveys else 0
+        distribution.append({
+            'rating': dist['rating'],
+            'count': dist['count'],
+            'percent': percent,
+        })
+
+    return render(request, 'app/survey/admin_list.html', {
+        'surveys': surveys,
+        'total_surveys': total_surveys,
+        'avg_rating': round(avg_rating, 1),
+        'rating_distribution': distribution,
+    })
+
+@login_required
+def survey_detail(request, survey_id):
+    """
+    Vista para ver los detalles de una encuesta específica.
+    Solo accesible para administradores o el usuario que la creó.
+    """
+    survey = get_object_or_404(SatisfactionSurvey, pk=survey_id)
+    
+    if not (request.user.is_staff or survey.user == request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('events')
+    
+    return render(request, 'app/survey_detail.html', {
+        'survey': survey
+    })
