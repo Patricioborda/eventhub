@@ -150,6 +150,11 @@ def event_detail(request, id):
     # Calcular user_is_organizer correctamente incluso para guest
     user_is_organizer = user == event.organizer if user else False
 
+    user_has_max_tickets = False
+    if user and not user_is_organizer:
+        disponibles = Ticket.entradas_disponibles_para_usuario(user, event)
+        user_has_max_tickets = disponibles <= 0
+
 
     # ---------- Flags de edición ----------
     edit_id   = request.GET.get("edit_rating")       # p.e. "17" ó None
@@ -203,6 +208,7 @@ def event_detail(request, id):
         "form":             form,
         "comments":         comments,
         "user_is_organizer": user_is_organizer,
+        "user_has_max_tickets": user_has_max_tickets,
     })
 
 @login_required
@@ -597,34 +603,88 @@ def ticket_create(request, event_id):
             ticket = form.save(commit=False)
             ticket.event = event
             ticket.user = request.user
+
+            disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+            existentes = 4 - disponibles
+
+            if ticket.quantity > disponibles:
+                messages.error(
+                    request,
+                    f"No puedes comprar más de 4 entradas por evento. Ya compraste {existentes}."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': existentes,
+                    'entradas_disponibles': disponibles,
+                })
+
             ticket.save()
             # Guardar el ticket_id en la sesión
             request.session['last_ticket_id'] = ticket.id
-            messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
+            #messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
             return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
+        disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+        existentes = 4 - disponibles
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': event
+        'event': event,
+        'entradas_existentes': existentes,
+        'entradas_disponibles': disponibles,
     })
 
 
 @login_required
 def ticket_update(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    event = ticket.event
+
     if request.method == 'POST':
         form = TicketForm(request.POST, instance=ticket)
         if form.is_valid():
+            entradas_actuales = Ticket.objects.filter(
+                user=request.user,
+                event=event
+            ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+            nuevas = form.cleaned_data['quantity']
+            total = entradas_actuales + nuevas
+
+            if total > 4:
+                disponibles = 4 - entradas_actuales
+                messages.error(
+                    request,
+                    f"No puedes tener más de 4 entradas por evento. Ya compraste {entradas_actuales}, puedes modificar hasta {disponibles} entradas."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': entradas_actuales,
+                    'entradas_disponibles': disponibles,
+                })
+
             form.save()
             return redirect('ticket_list')
     else:
         form = TicketForm(instance=ticket)
 
+        entradas_actuales = Ticket.objects.filter(
+            user=request.user,
+            event=ticket.event
+        ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+        disponibles = 4 - entradas_actuales
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
+
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': ticket.event
+        'event': ticket.event,
+        'entradas_existentes': entradas_actuales,
+        'entradas_disponibles': disponibles,
     })
 
 
