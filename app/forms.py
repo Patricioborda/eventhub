@@ -258,6 +258,9 @@ class RatingForm(forms.ModelForm):
             'text': 'Tu reseña (opcional)',
         }
 
+
+MAX_DESCRIPTION_LENGTH = 200
+
 class DiscountCodeForm(forms.ModelForm):
     EVENTO_NINGUNO_ID = "NONE"
     EVENTO_TODOS_ID = "ALL"
@@ -309,6 +312,65 @@ class DiscountCodeForm(forms.ModelForm):
             except Event.DoesNotExist:
                 raise forms.ValidationError("El evento seleccionado no es válido.")
 
+    def clean_description(self):
+        description = self.cleaned_data.get('description')
+        if description and len(description) > MAX_DESCRIPTION_LENGTH:
+            raise forms.ValidationError(f'La descripción no puede tener más de {MAX_DESCRIPTION_LENGTH} caracteres.')
+        return description
+
+    def clean_valid_until(self):
+        valid_from = self.cleaned_data.get('valid_from')
+        valid_until = self.cleaned_data.get('valid_until')
+
+        if valid_until and valid_from and valid_until < valid_from:
+            raise forms.ValidationError('La fecha de finalización debe ser mayor o igual a la fecha de inicio.')
+        return valid_until
+
+    def clean_valid_from(self):
+        valid_from = self.cleaned_data.get('valid_from')
+        if valid_from and valid_from < timezone.now().date():
+            raise forms.ValidationError('La fecha de inicio no puede ser en el pasado.')
+        return valid_from
+
+    def clean_discount_value(self):
+        discount_value = self.cleaned_data.get('discount_value')
+        discount_type = self.cleaned_data.get('discount_type')
+
+        if discount_value is None or discount_value <= 0:
+            raise forms.ValidationError('El valor del descuento debe ser mayor que cero.')
+
+        if discount_type == 'percent' and (discount_value > 100 or discount_value <= 0):
+            raise forms.ValidationError('El porcentaje debe estar entre 1 y 100.')
+        return discount_value
+
+    def clean_max_uses(self):
+        max_uses = self.cleaned_data.get('max_uses')
+        if max_uses is not None and max_uses < 1:
+            raise forms.ValidationError('El máximo de usos debe ser al menos 1.')
+        return max_uses
+
+    def clean(self):
+        cleaned_data = super().clean()
+        event = cleaned_data.get('event')
+
+        # Validar la lógica de evento si quieres que concuerde con apply_to_all del modelo
+        # Por ejemplo: si event == "ALL" entonces en modelo apply_to_all=True
+        # Aquí solo validamos que event tenga sentido, el resto está en modelo
+
+        return cleaned_data
+        
+    def clean_code(self):
+        code = self.cleaned_data.get('code')
+        qs = DiscountCode.objects.filter(code__iexact=code)
+
+        # Si es edición, excluir el objeto actual para que no marque error consigo mismo
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        if qs.exists():
+            raise forms.ValidationError('Este código ya existe. Por favor ingrese otro.')
+
+        return code
 
 class DiscountCodeEditForm(forms.ModelForm):
     class Meta:
@@ -322,5 +384,51 @@ class DiscountCodeEditForm(forms.ModelForm):
             'discount_value',
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def clean_description(self):
+        description = self.cleaned_data.get('description')
+        if description and len(description) > MAX_DESCRIPTION_LENGTH:
+            raise forms.ValidationError(f'La descripción no puede tener más de {MAX_DESCRIPTION_LENGTH} caracteres.')
+        return description
+
+    def clean_valid_until(self):
+        valid_from = self.cleaned_data.get('valid_from')
+        valid_until = self.cleaned_data.get('valid_until')
+
+        if valid_until and valid_from and valid_until < valid_from:
+            raise forms.ValidationError('La fecha de finalización debe ser mayor o igual a la fecha de inicio.')
+        return valid_until
+
+    def clean_valid_from(self):
+        valid_from = self.cleaned_data.get('valid_from')
+        if valid_from and valid_from < timezone.now().date():
+            raise forms.ValidationError('La fecha de inicio no puede ser en el pasado.')
+        return valid_from
+
+    def clean_discount_value(self):
+        discount_value = self.cleaned_data.get('discount_value')
+        discount_type = self.cleaned_data.get('discount_type')
+
+        if discount_value is None or discount_value <= 0:
+            raise forms.ValidationError('El valor del descuento debe ser mayor que cero.')
+
+        if discount_type == 'percent' and (discount_value > 100 or discount_value <= 0):
+            raise forms.ValidationError('El porcentaje debe estar entre 1 y 100.')
+        return discount_value
+
+    def clean_max_uses(self):
+        max_uses = self.cleaned_data.get('max_uses')
+        if max_uses is not None and max_uses < 1:
+            raise forms.ValidationError('El máximo de usos debe ser al menos 1.')
+        return max_uses
+
+        if max_uses is not None and max_uses < self.instance.uses:
+            raise forms.ValidationError('El máximo de usos no puede ser menor que las veces usadas actualmente.')
+        return cleaned_data
+
+    def clean(self):
+        cleaned_data = super().clean()
+        max_uses = cleaned_data.get('max_uses')
+
+        if max_uses is not None and max_uses < self.instance.uses:
+            raise forms.ValidationError('El máximo de usos no puede ser menor que las veces usadas actualmente.')
+        return cleaned_data
