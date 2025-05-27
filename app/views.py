@@ -606,6 +606,7 @@ def ticket_create(request, event_id):
         form = TicketForm()
         disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
         existentes = 4 - disponibles
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,

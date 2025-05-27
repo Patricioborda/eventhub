@@ -89,6 +89,18 @@ function validarPago() {
     return false;
   }
 
+  const cantidad = parseInt(document.getElementById("id_quantity").value);
+  const max = parseInt(document.getElementById("id_quantity").dataset.max || 4);
+  if (cantidad > max) {
+    Swal.fire({
+      title: 'Error',
+      text: `Solo puedes comprar ${max} entrada/s para este evento.`,
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
   return true;  // Si todo está bien, se envía el formulario
 }
 
