@@ -122,16 +122,38 @@ def privacy_policy(request):
 # ------------------- Eventos -------------------
 @login_required
 def events(request):
-    events = Event.objects.all().order_by("scheduled_at")
-    # Obtener lista de favoritos del usuario
+    # Obtiene los eventos, base para ambos casos (usuario y organizador)
+    all_events_ordered = Event.objects.all().order_by("scheduled_at")
+
+    # Determina si el usuario es organizador
+    if request.user.is_organizer:
+        # Si es organizador, mostrar todos los eventos
+        events_to_display = all_events_ordered
+        no_future_events_message = None # No necesita el mensaje para organizadores
+    else:
+        # Si no es organizador, filtrar para mostrar solo eventos futuros
+        events_to_display = []
+        for event in all_events_ordered:
+            # consume `has_passed` para cada evento
+            if not event.has_passed:
+                events_to_display.append(event)
+
+        # Lógica para el mensaje de "no hay eventos próximos" para usuarios no organizadores
+        no_future_events_message = None
+        if not events_to_display: # Verifica si la lista de eventos futuros está vacía
+            no_future_events_message = "Actualmente no hay eventos próximos visibles."
+
+    # Obtener lista de favoritos del usuario (esto aplica para ambos roles)
     favoritos_ids = request.user.favorites.values_list("event_id", flat=True)
+
     return render(
         request,
         "app/events.html",
         {
-            "events": events, 
+            "events": events_to_display, # Pasa la lista de eventos que corresponda al usuario
             "user_is_organizer": request.user.is_organizer,
-            "favoritos_ids": list(favoritos_ids)
+            "favoritos_ids": list(favoritos_ids),
+            "no_future_events_message": no_future_events_message, # Pasa el mensaje condicionalmente
         },
     )
 
