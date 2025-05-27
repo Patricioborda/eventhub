@@ -30,3 +30,18 @@ input[type=number]::-webkit-outer-spin-button {
   color: #333;
   font-style: italic !important; /* Texto en cursiva */
 }
+
+/* Estilos para input de cantidad readonly */
+#id_quantity[readonly] {
+    background-color: #f8f9fa !important;
+    cursor: default !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+#id_quantity[readonly]:focus {
+    box-shadow: none !important;
+    border-color: #ced4da !important;
+}

@@ -1,10 +1,17 @@
 function adjustQuantity(amount) {
   const input = document.getElementById("id_quantity");
+  const max = parseInt(input.getAttribute("data-max")) || 4;  // Por defecto, 4
   let value = parseInt(input.value || 0);
+
   if (isNaN(value)) value = 0;
-  value = Math.max(1, value + amount);
+
+  value += amount;
+
+  // Limitar entre 1 y max
+  value = Math.max(1, Math.min(value, max));
+
   input.value = value;
-  actualizarResumen(); 
+  actualizarResumen();
 }
 
 function actualizarResumen() {
@@ -53,6 +60,54 @@ function validarPago() {
     return false; // Evita que se envíe el formulario
   }
 
+   // Validar número de tarjeta
+  const tarjeta = document.getElementById('card_number').value.replace(/\s/g, '');
+  if (tarjeta.length !== 16) {
+    Swal.fire({
+      title: 'Error',
+      text: 'El número de tarjeta debe tener exactamente 16 dígitos.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
+  // Validar formato MM/AA
+  const expiry = document.getElementById('card_expiry').value;
+  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
+    Swal.fire({
+      title: 'Error',
+      text: 'La fecha de expiración debe tener el formato MM/AA.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
+  // Validar CVV
+  const cvv = document.getElementById('card_cvv').value;
+  if (!/^\d{3}$/.test(cvv)) {
+    Swal.fire({
+      title: 'Error',
+      text: 'El código de seguridad (CVV) debe tener 3 dígitos numéricos.',
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }
+
+  /*const cantidad = parseInt(document.getElementById("id_quantity").value);
+  const max = parseInt(document.getElementById("id_quantity").dataset.max || 4);
+  if (cantidad > max) {
+    Swal.fire({
+      title: 'Error',
+      text: `Solo puedes comprar ${max} entrada/s para este evento.`,
+      icon: 'error',
+      confirmButtonText: 'Aceptar'
+    });
+    return false;
+  }*/
+
   return true;  // Si todo está bien, se envía el formulario
 }
 
@@ -60,6 +115,21 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("id_quantity").addEventListener("input", actualizarResumen);
   document.getElementById("id_type").addEventListener("change", actualizarResumen);
   actualizarResumen();
+
+  const quantityInput = document.getElementById("id_quantity");
+  if (quantityInput) {
+    // Hacer el campo de solo lectura
+    quantityInput.setAttribute("readonly", "true");
+    
+    // Prevenir que se pueda editar manualmente
+    quantityInput.addEventListener("keydown", function(e) {
+      e.preventDefault(); // Bloquear todas las teclas
+    });
+    
+    quantityInput.addEventListener("paste", function(e) {
+      e.preventDefault(); // Bloquear pegar
+    });
+  }
 
   const form = document.querySelector("form");
   if (form) {
@@ -69,4 +139,46 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  formatearNumerosTarjeta(document.getElementById("card_number"));
+  formatearFechaExp(document.getElementById("card_expiry"));
+  validarCVV(document.getElementById("card_cvv"));
+  validarNombre(document.getElementById("card_name"));
 });
+
+function formatearNumerosTarjeta (input){
+  input.addEventListener("input", () => {
+    let numeros = input.value.replace(/\D/g, "").substring(0, 16);
+    numeros = numeros.replace(/(.{4})/g, "$1 ").trim();
+    input.value = numeros;
+  })
+}
+
+function formatearFechaExp (input) {
+  input.addEventListener("input", () => {
+
+    let fecha = input.value.replace (/\D/g, "").substring (0,4);
+    
+    if (fecha.length >= 3){
+      fecha = fecha.replace(/^(\d{2})(\d{1,2})/, "$1/$2");
+    }
+
+    input.value = fecha;
+  })
+}
+
+function validarCVV (input){
+  input.addEventListener("input", () =>{
+
+    let cvv = input.value.replace (/\D/g, "").substring (0,3);
+    input.value = cvv;
+
+  })
+}
+
+function validarNombre (input){
+  input.addEventListener("input", () => {
+    let nombre = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
+    input.value = nombre;
+  })
+}

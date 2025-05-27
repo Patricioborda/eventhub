@@ -140,6 +140,15 @@
 }
 
 
+.nav-item .bi-star-fill {
+  transition: color 0.2s ease;
+}
+
+.nav-item .bi-star-fill:hover {
+  color: #ffd700; /* dorado más brillante */
+  text-shadow: 0 0 6px #fff38a;
+}
+
 
   /* Responsive ajuste de paddings */
   @media (max-width: 768px) {

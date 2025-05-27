@@ -34,6 +34,8 @@ urlpatterns = [
     path('tickets/<int:pk>/delete/', views.ticket_delete, name='ticket_delete'),
     path("organizer/tickets/", views.ticket_list_organizer, name="ticket_list_organizer"),
     path('organizer/tickets/<int:pk>/delete/', views.ticket_delete, name='ticket_delete_organizer'),
+    path('tickets/<int:ticket_id>/survey/', views.survey_create, name='survey_create'),
+    path('surveys/', views.survey_list, name='survey_list'),
     path("categories/", views.categories, name="categories"),
     path("categories/create/", views.category_form, name="category_form"), 
     path("categories/<int:id>/edit/", views.category_form, name="category_edit"),
@@ -54,4 +56,7 @@ urlpatterns = [
     path("refunds/manage/", views.manage_refund_requests, name="manage_refund_requests"),
     path("refunds/<int:id>/approve/", views.approve_refund_request, name="approve_refund_request"),
     path("refunds/<int:id>/reject/", views.reject_refund_request, name="reject_refund_request"),
+    path("favorites/", views.favorites_list, name="favorites_list"),
+    path('favorites/toggle/<int:event_id>/', views.toggle_favorite, name='toggle_favorite'),
+
 ]

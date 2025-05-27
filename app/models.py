@@ -7,6 +7,9 @@ from django.db import models
 from django.utils import timezone
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
+from datetime import timedelta
+from django.core.validators import MinValueValidator, MaxValueValidator
+
 
 # ------------------- Usuario -------------------
 class User(AbstractUser):
@@ -43,6 +46,7 @@ class Venue(models.Model):
     def __str__(self):
         return f"{self.name} - {self.city}"
 
+#-------------------- Event -------------------
 class Event(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -53,6 +57,11 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def countdown_seconds(self):
+            now = timezone.now()
+            diff = (self.scheduled_at - now).total_seconds()
+            return int(diff) if diff > 0 else 0
+    
     def __str__(self):
         return self.title
 
@@ -145,6 +154,7 @@ def notify_on_event_change(sender, instance, **kwargs):
         )
 
 
+#---------------------------------------
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
@@ -256,6 +266,44 @@ class Ticket(models.Model):
             self.ticket_code = str(uuid.uuid4()).replace('-', '')[:10].upper()
         super().save(*args, **kwargs)
 
+    @classmethod
+    def entradas_disponibles_para_usuario(cls, user, event):
+        cantidad_actual = cls.objects.filter(user=user, event=event).aggregate(models.Sum('quantity'))['quantity__sum'] or 0
+        return 4 - cantidad_actual
+    
+    @classmethod
+    def validate(cls, quantity, ticket_type, card_number, card_expiry, card_cvv, card_name):
+        import re
+        errors = {}
+
+        # Validar cantidad
+        if quantity is None or quantity < 1:
+            errors["quantity"] = "La cantidad debe ser al menos 1"
+
+        # Validar tipo
+        if ticket_type not in dict(cls.TICKETS_TYPES):
+            errors["type"] = "Tipo de entrada no válido"
+
+        # Validar número de tarjeta
+        if not card_number or not card_number.replace(" ", "").isdigit() or len(card_number.replace(" ", "")) != 16:
+            errors["card_number"] = "El número de tarjeta debe tener exactamente 16 dígitos"
+
+        # Validar formato de expiración (MM/AA)
+        if not card_expiry or not re.match(r"^(0[1-9]|1[0-2])/\d{2}$", card_expiry):
+            errors["card_expiry"] = "La fecha de expiración debe tener el formato MM/AA"
+
+        # Validar CVV
+        if not card_cvv or not card_cvv.isdigit() or len(card_cvv) != 3:
+            errors["card_cvv"] = "El CVV debe tener exactamente 3 dígitos"
+
+        # Validar nombre
+        if not card_name or not re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$", card_name):
+            errors["card_name"] = "El nombre debe contener solo letras"
+
+        return errors
+
+
+
 # ------------------- Notificación -------------------
 class Notification(models.Model):
     # Destinatario específico (opcional)
@@ -342,3 +390,72 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.rating}★ - {self.title} ({self.user.username})"
+
+
+from django.core.exceptions import ValidationError
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorites")
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="favorited_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'event')
+
+    def __str__(self):
+        return f"{self.user.username} ♥ {self.event.title}"
+
+    def clean(self):
+        if self.user_id is None or self.event_id is None: # type: ignore
+            raise ValidationError("Usuario y evento deben estar definidos.")
+
+    @classmethod
+    def toggle(cls, user, event):
+        fav = cls.objects.filter(user=user, event=event).first()
+        if fav:
+            fav.delete()
+            return fav, False
+        else:
+            fav = cls.objects.create(user=user, event=event)
+            return fav, True
+
+# ------------------- Encuesta de satisfacción -------------------
+class SatisfactionSurvey(models.Model):
+    RATING_CHOICES = [
+        (1, '1 estrella'),
+        (2, '2 estrellas'),
+        (3, '3 estrellas'),
+        (4, '4 estrellas'),
+        (5, '5 estrellas'),
+    ]
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='satisfaction_surveys')
+    rating = models.IntegerField(
+        choices=RATING_CHOICES,
+        validators=[
+            MinValueValidator(1, message='La calificación mínima es 1 estrella'),
+            MaxValueValidator(5, message='La calificación máxima es 5 estrellas')
+        ],
+        null=False,
+        blank=False,
+        help_text='La calificación es obligatoria (1-5 estrellas)'
+    )
+    observations = models.TextField(blank=True, null=True, max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('ticket', 'user')  # Un usuario solo puede hacer una encuesta por ticket
+        ordering = ['-created_at']
+        verbose_name = 'Encuesta de satisfacción'
+        verbose_name_plural = 'Encuestas de satisfacción'
+
+    def __str__(self):
+        return f"Encuesta de {self.user.username} - {self.rating}★ - {self.event.title}"
+
+    def clean(self):
+        # Validar que el rating sea requerido
+        if not self.rating:
+            raise ValidationError({'rating': 'La calificación es obligatoria'})        
+       
