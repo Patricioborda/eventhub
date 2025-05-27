@@ -4,12 +4,10 @@
 
 function adjustQuantity(amount) {
   const input = document.getElementById("id_quantity");
-  let value   = parseInt(input.value || 0);
+  const max = parseInt(input.getAttribute("data-max")) || 4;  // Por defecto, 4
+  let value = parseInt(input.value || 0);
   if (isNaN(value)) value = 0;
-
-  const max = parseInt(document.getElementById("remaining_capacity")?.value || "0");
-  value     = Math.max(1, Math.min(value + amount, max));
-
+  value = Math.max(1, Math.min(value + amount, max));
   input.value = value;
   actualizarResumen();
 }
@@ -31,12 +29,11 @@ function actualizarResumen() {
   document.getElementById("impuestos").innerText        = impuestos.toFixed(2);
   document.getElementById("total").innerText            = total.toFixed(2);
 
-  /*── Alerta “quedan X” ─────────────────────────────*/
   const restante = parseInt(document.getElementById("remaining_capacity")?.value || "0");
   const alerta   = document.getElementById("alerta_entradas");
 
   if (alerta) {
-    const disponible = restante - cantidad;      // lo que quedaría libre
+    const disponible = restante - cantidad;
     if (disponible <= 5 && disponible > 0) {
       alerta.classList.remove("d-none");
       alerta.innerHTML =
@@ -56,13 +53,11 @@ function validarPago() {
   const cantidad = parseInt(document.getElementById("id_quantity").value);
   const cupo     = parseInt(document.getElementById("remaining_capacity").value);
 
-  /* Capacidad */
   if (cantidad > cupo) {
     toast(`Cupo insuficiente: solo quedan ${cupo} entradas.`, "warning");
     return false;
   }
 
-  /* Datos de tarjeta */
   const campos = ["card_number", "card_expiry", "card_cvv", "card_name"];
   for (const id of campos) {
     const c = document.getElementById(id);
@@ -90,7 +85,6 @@ function validarPago() {
     return false;
   }
 
-  /* Términos y condiciones */
   if (!document.getElementById("accept_terms").checked) {
     toast("Debes aceptar los términos y condiciones.", "error");
     return false;
@@ -100,7 +94,7 @@ function validarPago() {
 }
 
 /*----------------------------------------------------------------
-  Utilidades de formato (tarjeta/fecha/cvv)
+  Utilidades de formato (tarjeta/fecha/cvv/nombre)
 ----------------------------------------------------------------*/
 function formatearNumerosTarjeta(input) {
   input.addEventListener("input", () => {
@@ -121,6 +115,13 @@ function formatearFechaExp(input) {
 function validarCVV(input) {
   input.addEventListener("input", () => {
     input.value = input.value.replace(/\D/g, "").substring(0, 3);
+  });
+}
+
+function validarNombre(input) {
+  input.addEventListener("input", () => {
+    let nombre = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
+    input.value = nombre;
   });
 }
 
@@ -145,21 +146,27 @@ function toast(texto, tipo = "info") {
   Setup al cargar página
 ----------------------------------------------------------------*/
 document.addEventListener("DOMContentLoaded", () => {
-  /* recálculo permanente */
   document.getElementById("id_quantity")?.addEventListener("input", actualizarResumen);
-  document.getElementById("id_type")    ?.addEventListener("change", actualizarResumen);
-
-  /* normaliza si se escribe a mano y sale del campo */
+  document.getElementById("id_type")?.addEventListener("change", actualizarResumen);
   document.getElementById("id_quantity")?.addEventListener("blur", () => adjustQuantity(0));
 
-  actualizarResumen(); // inicial
+  actualizarResumen();
 
-  /* Validación antes de enviar */
+  const quantityInput = document.getElementById("id_quantity");
+  if (quantityInput) {
+    quantityInput.setAttribute("readonly", "true");
+
+    quantityInput.addEventListener("keydown", (e) => e.preventDefault());
+    quantityInput.addEventListener("paste", (e) => e.preventDefault());
+  }
+
   const form = document.querySelector("form");
-  form?.addEventListener("submit", e => { if (!validarPago()) e.preventDefault(); });
+  form?.addEventListener("submit", (e) => {
+    if (!validarPago()) e.preventDefault();
+  });
 
-  /* formato de inputs de tarjeta */
   formatearNumerosTarjeta(document.getElementById("card_number"));
-  formatearFechaExp      (document.getElementById("card_expiry"));
-  validarCVV             (document.getElementById("card_cvv"));
+  formatearFechaExp(document.getElementById("card_expiry"));
+  validarCVV(document.getElementById("card_cvv"));
+  validarNombre(document.getElementById("card_name"));
 });

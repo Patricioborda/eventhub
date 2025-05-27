@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4 text-center">Panel de Encuestas de Satisfacción</h2>
+
+    <!-- Indicadores compactos -->
+    <div class="row text-center mb-4 justify-content-center">
+      <div class="col-6 col-md-3">
+        <div class="stat-box py-3">
+          <div class="stat-title mb-1 text-muted" style="font-size: 1.1rem;">Total de Encuestas</div>
+          <div class="stat-value" style="font-size: 2.5rem; font-weight: bold;">{{ total_surveys }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-box py-3">
+          <div class="stat-title mb-1 text-muted" style="font-size: 1.1rem;">Calificación Promedio</div>
+          <div class="stat-value d-inline-flex align-items-center" style="font-size: 2.5rem; font-weight: bold;">
+            {{ avg_rating }} <span class="text-warning ms-2" style="font-size: 2rem;">★</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de Encuestas -->
+    <div class="card" style="width: 80%; max-width: 100%; margin-left: auto; margin-right: auto;">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Evento</th>
+                            <th>Ticket</th>
+                            <th class="w-30" style="min-width: 150px; width: 30%;">Observaciones</th>
+                            <th style="width: 120px; min-width: 120px; max-width: 120px;">Calificación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for survey in surveys %}
+                        <tr>
+                            <td>{{ survey.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>{{ survey.user.username }}</td>
+                            <td>{{ survey.event.title }}</td>
+                            <td>{{ survey.ticket.ticket_code }}</td>
+                            <td class="w-30" style="min-width: 150px; width: 30%;">
+                                {% if survey.observations %}
+                                    <button type="button" class="btn btn-link p-0 observation-btn"
+                                            data-bs-toggle="modal" data-bs-target="#observationModal"
+                                            data-observacion="{{ survey.observations|escapejs }}">
+                                        Ver observaciones
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">Sin observaciones</span>
+                                {% endif %}
+                            </td>
+                            <td style="width: 140px; min-width: 120px; max-width: 140px;">
+                                <span class="star-inline">
+                                    {% for i in "12345" %}
+                                        <i class="bi {% if forloop.counter <= survey.rating %}bi-star-fill text-warning{% else %}bi-star{% endif %}" style="font-size: 1.3rem;"></i>
+                                    {% endfor %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No hay encuestas registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'app/survey/survey_observation_modal.html' %}
+
+{% block extra_js %}
+<script>
+    // Inicializar tooltips de Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Modal para observaciones: actualiza el texto al abrir
+    var observationModal = document.getElementById('observationModal');
+    observationModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var obsText = button.getAttribute('data-observacion') || '';
+        obsText = obsText.replace(/(\\u000D\\u000A|\\n|\\r|\r\n|\n|\r)/g, '<br>');
+        document.getElementById('observationModalText').innerHTML = obsText;
+    });
+</script>
+{% endblock %}
+
+{% endblock %} 

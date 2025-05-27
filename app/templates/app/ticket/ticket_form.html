@@ -111,6 +111,21 @@
         <div class="card-body small">
           <ul class="mb-0">
             <li>Las entradas son personales e intransferibles.</li>
+            <li>Maximo 4 entradas por evento.</li>
+            <li>
+              {% if entradas_existentes > 0 %}
+                Ya has comprado {{ entradas_existentes }} para este evento.
+              {% else %}
+                Aún no has comprado entradas para este evento.
+              {% endif %}
+            </li>
+            
+            {% if messages %}
+              {% for message in messages %}
+                <li class="text-danger fw-bold">{{ message }}</li>
+              {% endfor %}
+            {% endif %}
+
             <li>Puedes solicitar un reembolso hasta 48 horas antes del evento.</li>
             <li>Recibirás tu entrada en tu correo electrónico.</li>
             <li>Presenta tu entrada digital o impresa el día del evento.</li>

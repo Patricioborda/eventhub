@@ -23,9 +23,19 @@
                 <h5 class="card-title text-dark mb-2">Detalles del Evento</h5>
                 <!-- Botón a la derecha -->
                 {% if user.is_authenticated and not user.is_organizer %}
-                    <a href="{% url 'ticket_create' event.id %}" class="btn btn-eventhub">
-                    Comprar Ticket
-                    </a>
+                    {% if user_has_max_tickets %}
+                        <!-- Mensaje mejorado con mejor estilo -->
+                        <div class="alert alert-warning limit-reached mb-0 py-2 px-3 d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <span>No puedes comprar entradas para este evento porque superaste el límite por usuario</span>
+                        </div>
+                    {% else %}
+                        <!-- Botón de comprar normal -->
+                        <a href="{% url 'ticket_create' event.id %}" class="btn btn-eventhub">
+                            <i class="bi bi-ticket-perforated me-1"></i>
+                            Comprar Ticket
+                        </a>
+                    {% endif %}
                 {% endif %}
                 </div>
                 </div>
