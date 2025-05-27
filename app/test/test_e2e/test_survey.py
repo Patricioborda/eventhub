@@ -123,3 +123,29 @@ class SurveyRealFlowTest(SurveyBaseTest):
         expect(self.page).not_to_have_url(f"{self.live_server_url}/tickets/{ticket.id}/survey/")
         # Opcional: verificar mensaje de error
         # expect(self.page.get_by_text("No tienes permiso")).to_be_visible() 
+
+    def test_only_one_survey_per_ticket(self):
+        """El usuario solo puede completar una encuesta por compra (ticket)"""
+        # 1. Comprar ticket y completar encuesta
+        ticket = self._comprar_ticket_y_ir_a_encuesta()
+        self.page.click('label[for="star5"]')
+        self.page.get_by_label("Observaciones").fill("Muy buena experiencia.")
+        self.page.get_by_role("button", name="Enviar Encuesta").click()
+        expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
+        # 2. Intentar acceder nuevamente a la encuesta para ese ticket
+        self.page.goto(f"{self.live_server_url}/tickets/{ticket.id}/survey/")
+        # 3. Verificar que es redirigido o recibe mensaje de que ya completó la encuesta
+        expect(self.page).not_to_have_url(f"{self.live_server_url}/tickets/{ticket.id}/survey/")
+        # Opcional: verificar mensaje de error o info
+        # expect(self.page.get_by_text("Ya has realizado una encuesta para este ticket")).to_be_visible() 
+
+    def test_observation_field_optional(self):
+        """El usuario puede enviar la encuesta solo con la calificación (sin observación)"""
+        ticket = self._comprar_ticket_y_ir_a_encuesta()
+        self.page.click('label[for="star4"]')
+        self.page.get_by_role("button", name="Enviar Encuesta").click()
+        expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
+        from app.models import SatisfactionSurvey
+        survey = SatisfactionSurvey.objects.get(ticket=ticket)
+        self.assertEqual(survey.rating, 4)
+        self.assertTrue(survey.observations is None or survey.observations == "") 
