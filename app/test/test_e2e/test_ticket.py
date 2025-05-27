@@ -105,7 +105,17 @@ class TicketLimitE2ETest(BaseE2ETest):
         # PASO 6: Confirmar primera compra
         self.page.get_by_role("button", name="Confirmar compra").click()
         
-        # Verificar que la compra fue exitosa y redirigió a mis tickets
+        # NUEVO: Manejar la encuesta de satisfacción que aparece después de la compra
+        # Verificar si aparece la encuesta
+        try:
+            expect(self.page.get_by_text("Encuesta de Satisfacción")).to_be_visible(timeout=3000)
+            # Omitir la encuesta para ir directo a tickets
+            self.page.get_by_role("link", name="Omitir por ahora").click()
+        except:
+            # Si no aparece la encuesta, continuamos
+            pass
+        
+        # Verificar que finalmente llegamos a la página de tickets
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
         
         # Verificar que se creó el ticket con 4 entradas
@@ -186,6 +196,13 @@ class TicketLimitE2ETest(BaseE2ETest):
         # Confirmar compra
         self.page.get_by_role("button", name="Confirmar compra").click()
         
+        # NUEVO: Manejar la encuesta de satisfacción
+        try:
+            expect(self.page.get_by_text("Encuesta de Satisfacción")).to_be_visible(timeout=3000)
+            self.page.get_by_role("link", name="Omitir por ahora").click()
+        except:
+            pass
+        
         # Verificar que la compra fue exitosa
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
         
@@ -259,6 +276,13 @@ class TicketLimitE2ETest(BaseE2ETest):
         self.page.check("#accept_terms")
         self.page.get_by_role("button", name="Confirmar compra").click()
         
+        # NUEVO: Manejar la encuesta de satisfacción
+        try:
+            expect(self.page.get_by_text("Encuesta de Satisfacción")).to_be_visible(timeout=3000)
+            self.page.get_by_role("link", name="Omitir por ahora").click()
+        except:
+            pass
+        
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
         
         # Cerrar sesión
@@ -285,6 +309,13 @@ class TicketLimitE2ETest(BaseE2ETest):
         self.page.fill("#card_name", "Maria Lopez")
         self.page.check("#accept_terms")
         self.page.get_by_role("button", name="Confirmar compra").click()
+        
+        # NUEVO: Manejar la encuesta de satisfacción
+        try:
+            expect(self.page.get_by_text("Encuesta de Satisfacción")).to_be_visible(timeout=3000)
+            self.page.get_by_role("link", name="Omitir por ahora").click()
+        except:
+            pass
         
         expect(self.page).to_have_url(f"{self.live_server_url}/tickets/")
         

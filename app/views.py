@@ -622,7 +622,7 @@ def ticket_create(request, event_id):
             ticket.save()
             # Guardar el ticket_id en la sesión
             request.session['last_ticket_id'] = ticket.id
-            messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
+            #messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
             return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
