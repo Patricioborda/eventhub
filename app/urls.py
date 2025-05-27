@@ -54,4 +54,9 @@ urlpatterns = [
     path("refunds/manage/", views.manage_refund_requests, name="manage_refund_requests"),
     path("refunds/<int:id>/approve/", views.approve_refund_request, name="approve_refund_request"),
     path("refunds/<int:id>/reject/", views.reject_refund_request, name="reject_refund_request"),
+    path('discount-codes/', views.discount_codes_list, name='discount_codes_list'),
+    path('discount-codes/<int:pk>/', views.discount_codes_detail, name='discount_codes_detail'),
+    path('discount-codes/new/', views.discount_codes_create, name='discount_codes_create'),
+    path('discount-codes/<int:pk>/edit/', views.discount_codes_edit, name='discount_codes_edit'),
+    path('discount-codes/<int:pk>/delete/', views.discount_codes_delete, name='discount_codes_delete'),
 ]

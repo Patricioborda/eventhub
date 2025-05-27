@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue
+from .models import Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue, DiscountCode
+
 
 
 class CommentForm(forms.ModelForm):
@@ -256,3 +257,70 @@ class RatingForm(forms.ModelForm):
             'rating': 'Tu calificación *',
             'text': 'Tu reseña (opcional)',
         }
+
+class DiscountCodeForm(forms.ModelForm):
+    EVENTO_NINGUNO_ID = "NONE"
+    EVENTO_TODOS_ID = "ALL"
+
+    event = forms.ChoiceField(
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Evento"
+    )
+
+    class Meta:
+        model = DiscountCode
+        fields = [
+            'code', 'description', 'valid_from', 'valid_until',
+            'max_uses', 'discount_type', 'discount_value'
+        ]
+        widgets = {
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ingrese código'}),
+            'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Descripción (opcional)'}),
+            'valid_from': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'valid_until': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'max_uses': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'discount_type': forms.Select(attrs={'class': 'form-select'}),
+            'discount_value': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        eventos_usuario = Event.objects.filter(organizer=user) if user else Event.objects.none()
+        choices = [
+            (self.EVENTO_NINGUNO_ID, "Ninguno"),
+            (self.EVENTO_TODOS_ID, "Todos mis eventos"),
+        ] + [(str(e.id), e.title) for e in eventos_usuario]
+
+        self.fields['event'].choices = choices
+
+    def clean_event(self):
+        event_id = self.cleaned_data.get('event')
+
+        if event_id == self.EVENTO_NINGUNO_ID:
+            return None
+        elif event_id == self.EVENTO_TODOS_ID:
+            return "ALL"
+        else:
+            try:
+                return Event.objects.get(pk=event_id)
+            except Event.DoesNotExist:
+                raise forms.ValidationError("El evento seleccionado no es válido.")
+
+
+class DiscountCodeEditForm(forms.ModelForm):
+    class Meta:
+        model = DiscountCode
+        fields = [
+            'description',
+            'valid_from',
+            'valid_until',
+            'max_uses',
+            'discount_type',
+            'discount_value',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

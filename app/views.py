@@ -25,6 +25,8 @@ from .forms import (
     RefundRequestForm,
     TicketForm,
     VenueForm,
+    DiscountCodeForm,
+    DiscountCodeEditForm
 )
 from .models import (
     Category,
@@ -36,6 +38,7 @@ from .models import (
     Ticket,
     User,
     Venue,
+    DiscountCode
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -863,3 +866,72 @@ def rating_delete(request, rating_id):
         return redirect(reverse("event_detail", kwargs={"id": event_id}))
 
     return redirect("events")
+
+@login_required
+def discount_codes_list(request):
+    codes = DiscountCode.objects.filter(created_by=request.user)
+    return render(request, 'discount_codes/discount_codes_list.html', {'codes': codes})
+
+@login_required
+def discount_codes_create(request):
+    if not request.user.is_organizer:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = DiscountCodeForm(request.POST, user=request.user)
+        if form.is_valid():
+            discount_code = form.save(commit=False)
+            selected_event = form.cleaned_data['event']
+
+            if selected_event == 'ALL':
+                discount_code.event = None
+                discount_code.apply_to_all = True
+            elif selected_event is None:
+                discount_code.event = None
+                discount_code.apply_to_all = False
+            else:
+                discount_code.event = selected_event
+                discount_code.apply_to_all = False
+
+            discount_code.created_by = request.user
+            discount_code.save()
+            messages.success(request, "Código de descuento creado correctamente.")
+            return redirect('discount_codes_list')
+    else:
+        form = DiscountCodeForm(user=request.user)
+
+    return render(request, 'discount_codes/discount_codes_form.html', {
+        'form': form,
+    })
+
+@login_required
+def discount_codes_edit(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+    if request.method == 'POST':
+        form = DiscountCodeEditForm(request.POST, instance=code)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Código de descuento actualizado correctamente.")
+            return redirect('discount_codes_list')
+    else:
+        form = DiscountCodeEditForm(instance=code)
+    return render(request, 'discount_codes/discount_codes_edit_form.html', {'form': form, 'code': code})
+
+@login_required
+def discount_codes_delete(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+    if request.method == 'POST':
+        code.delete()
+        messages.success(request, "Código de descuento eliminado correctamente.")
+        return redirect('discount_codes_list')
+    # Confirmación previa de borrado, si quieres:
+    return render(request, 'discount_codes/discount_codes_confirm_delete.html', {'code': code})
+    
+@login_required
+def discount_codes_detail(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk, created_by=request.user)
+    context = {
+        'code': code,
+    }
+    return render(request, 'discount_codes/discount_codes_detail.html', context)
+

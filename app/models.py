@@ -308,3 +308,24 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.rating}★ - {self.title} ({self.user.username})"
+
+class DiscountCode(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('fixed', 'Monto fijo ($)'),
+        ('percent', 'Porcentaje (%)'),
+    ]
+    created_at = models.DateTimeField(default=timezone.now)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True)
+    valid_from = models.DateField()
+    valid_until = models.DateField(blank=True, null=True)
+    max_uses = models.PositiveIntegerField(blank=True, null=True)
+    uses = models.PositiveIntegerField(default=0)
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+    event = models.ForeignKey('Event', on_delete=models.SET_NULL, blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    apply_to_all = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.code

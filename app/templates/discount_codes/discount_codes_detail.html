@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="containerEventos mt-5">
+    <h1 class="mb-4">Detalles del Código <strong>{{ code.code }}</strong></h1>
+
+    <div class="card p-4 shadow-sm">
+        <!-- Creado por -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-person-circle text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Creado por</h6>
+                <p class="mb-0">{{ code.created_by.username }}</p>
+            </div>
+        </div>
+
+        <!-- Evento -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-calendar-event text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Evento</h6>
+                <p class="mb-0">{% if code.event %}{{ code.event.name }}{% else %}Todos{% endif %}</p>
+            </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-card-text text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Descripción</h6>
+                <p class="mb-0">{{ code.description|default:"-" }}</p>
+            </div>
+        </div>
+
+        <!-- Validez -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-clock text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Vigencia</h6>
+                <p class="mb-0">
+                    Desde: {{ code.valid_from|date:"d/m/Y" }}<br>
+                    Hasta: {% if code.valid_until %}{{ code.valid_until|date:"d/m/Y" }}{% else %}Sin fecha{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- Usos -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-check2-circle text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Usos</h6>
+                <p class="mb-0">Máx: {{ code.max_uses|default:"Ilimitados" }} | Actual: {{ code.uses }}</p>
+            </div>
+        </div>
+
+        <!-- Tipo y valor -->
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+                <i class="bi bi-cash-coin text-primary"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">Descuento</h6>
+                <p class="mb-0">
+                    {% if code.discount_type == 'fixed' %}
+                        Monto fijo: ${{ code.discount_value }}
+                    {% else %}
+                        Porcentaje: {{ code.discount_value }}%
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'discount_codes_list' %}" class="btn btn-secondary mt-4">Volver a la lista</a>
+</div>
+{% endblock %}
