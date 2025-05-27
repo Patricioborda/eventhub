@@ -129,7 +129,7 @@ def notify_on_event_change(sender, instance, **kwargs):
         # Armamos detalles del cambio
         changes = []
         if date_changed:
-            changes.append(f"📅 Fecha: {previous.scheduled_at.strftime('%d/%m/%Y')} → {instance.scheduled_at.strftime('%d/%m/%Y')}")
+            changes.append(f"📅 Fecha y hora: {previous.scheduled_at.strftime('%d/%m/%Y %H:%M')} → {instance.scheduled_at.strftime('%d/%m/%Y %H:%M')}")
         if location_changed:
             changes.append(f"📍 Lugar: {previous.venue} → {instance.venue}")
         
