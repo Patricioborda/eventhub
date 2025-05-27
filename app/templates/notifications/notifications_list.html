@@ -3,6 +3,7 @@
 {% load static %}
 {% load form_tags %}
 {% load custom_filters %}
+{% load url_utils %}
 
 <div class="containerNotificaciones my-5">
   <h2 class="mb-4">📥 Gestión de Notificaciones</h2>
@@ -15,9 +16,9 @@
     <div class="col-sm-3">
       <select name="event" class="form-select">
         <option value="">Todos los eventos</option>
-        {% for event in all_events %}
-        <option value="{{ event.id }}" {% if request.GET.event == event.id|stringformat:"s" %}selected{% endif %}>
-          {{ event.title }}
+        {% for e in all_events %}
+        <option value="{{ e.id }}" {% if request.GET.event == e.id|stringformat:"s" %}selected{% endif %}>
+          {{ e.title }}
         </option>
         {% endfor %}
       </select>
@@ -43,10 +44,10 @@
       </span>
     {% endif %}
     {% if request.GET.event %}
-      {% for event in all_events %}
-        {% if event.id|stringformat:"s" == request.GET.event %}
+      {% for e in all_events %}
+        {% if e.id|stringformat:"s" == request.GET.event %}
           <span class="badge rounded-pill bg-secondary text-white me-2 text-decoration-none filter-bubble" data-param="event" style="cursor:pointer;">
-            🎫 {{ event.title }} ×
+            🎫 {{ e.title }} ×
           </span>
         {% endif %}
       {% endfor %}
@@ -61,95 +62,126 @@
   <!-- Tabla de notificaciones -->
   <div class="table-wrapper-notifs">
     <div class="draggable-scroll" id="notifTableScroll">
-        <table class="table table-hover table-notifs">
+      <table class="table table-hover table-notifs">
         <thead class="table-light">
-            <tr>
-            <th>Título</th>
-            <th>Evento</th>
+          <tr>
+            <th>
+              <a href="?{% with param='title' %}{{ request.GET.urlencode|url_replace:'order_by=' }}order_by={{ get_new_order(request.GET.order_by, param) }}{% endwith %}">
+                Título {{ render_order_icon(request.GET.order_by, 'title') }}
+              </a>
+            </th>
+            <th>
+              <a href="?{% with param='event__title' %}{{ request.GET.urlencode|url_replace:'order_by=' }}order_by={{ get_new_order(request.GET.order_by, param) }}{% endwith %}">
+                Evento {{ render_order_icon(request.GET.order_by, 'event__title') }}
+              </a>
+            </th>
             <th>Destinatarios</th>
             <th>Prioridad</th>
-            <th>Fecha de Envío</th>
+            <th>
+              <a href="?{% with param='created_at' %}{{ request.GET.urlencode|url_replace:'order_by=' }}order_by={{ get_new_order(request.GET.order_by, param) }}{% endwith %}">
+                Fecha de Envío {{ render_order_icon(request.GET.order_by, 'created_at') }}
+              </a>
+            </th>
             <th class="text-end">Acciones</th>
-            </tr>
+          </tr>
         </thead>
-            <tbody>
-                {% if sent_notifications %}
-                {% for n in sent_notifications %}
-                <tr>
-                    <td class="align-middle">{{ n.title }}</td>
-                    <td class="align-middle">{{ n.event.title|default:"—" }}</td>
-                    <td class="align-middle">
-                    {% if n.to_all_event_attendees %}
-                        <span class="badge bg-info text-dark">
-                        Todos ({{ event_counts|get_item:n.event.id|stringformat:"s"|default:"1" }})
-                        </span>
-                    {% else %}
-                        <span class="badge bg-secondary">Usuario único</span>
-                    {% endif %}
-                    </td>
-                    <td class="align-middle">
-                    <span class="badge {% if n.priority == 'high' %}bg-danger{% elif n.priority == 'normal' %}bg-primary{% else %}bg-secondary{% endif %}">
-                        {{ n.get_priority_display }}
+        <tbody>
+          {% if sent_notifications %}
+            {% for n in sent_notifications %}
+              <tr>
+                <td class="align-middle">{{ n.title }}</td>
+                <td class="align-middle">
+                  {% if n.event %}
+                    {{ n.event.title }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  {% if n.to_all_event_attendees %}
+                    <span class="badge bg-info text-dark">
+                      Todos (
+                      {% if n.event %}
+                        {{ event_counts|get_item:n.event.id|stringformat:"s"|default:"1" }}
+                      {% else %}
+                        &mdash;
+                      {% endif %}
+                      )
                     </span>
-                    </td>
-                    <td class="align-middle">{{ n.formatted_date }}</td>
-                    <td class="text-end align-middle">
-                    <a href="{% url 'notifications_delete' n.pk %}" class="btn btn-sm btn-outline-danger">🗑</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-3">No se encontraron notificaciones.</td></tr>
-                {% endfor %}
-                {% else %}
-                {% for n in received_notifications %}
-                <tr class="{% if not n.is_read %}table-warning{% endif %}">
-                    <td class="align-middle">{{ n.title }}</td>
-                    <td class="align-middle">{{ n.event.title|default:"—" }}</td>
-                    <td class="align-middle">
-                    {% if n.to_all_event_attendees %}
-                        <span class="badge bg-info text-dark">Todos</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Usuario único</span>
-                    {% endif %}
-                    </td>
-                    <td class="align-middle">
-                    <span class="badge {% if n.priority == 'high' %}bg-danger{% elif n.priority == 'normal' %}bg-primary{% else %}bg-secondary{% endif %}">
-                        {{ n.get_priority_display }}
-                    </span>
-                    </td>
-                    <td class="align-middle">{{ n.formatted_date }}</td>
-                    <td class="text-end align-middle">
-                    <form method="post" action="{% url 'notifications_read' n.pk %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-success" title="Marcar como leída">✔</button>
-                    </form>
-                    <a href="{% url 'notifications_detail' n.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">👁️</a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-3">No tenés notificaciones aún.</td></tr>
-                {% endfor %}
-                {% endif %}
-            </tbody>
-        </table>
+                  {% else %}
+                    <span class="badge bg-secondary">Usuario único</span>
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  <span class="badge {% if n.priority == 'high' %}bg-danger{% elif n.priority == 'normal' %}bg-primary{% else %}bg-secondary{% endif %}">
+                    {{ n.get_priority_display }}
+                  </span>
+                </td>
+                <td class="align-middle">{{ n.formatted_date }}</td>
+                <td class="text-end align-middle">
+                  <a href="{% url 'notifications_delete' n.pk %}" class="btn btn-sm btn-outline-danger">🗑</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-center text-muted py-3">No se encontraron notificaciones.</td></tr>
+            {% endfor %}
+          {% else %}
+            {% for n in received_notifications %}
+              <tr class="{% if not n.is_read %}table-warning{% endif %}">
+                <td class="align-middle">{{ n.title }}</td>
+                <td class="align-middle">
+                  {% if n.event %}
+                    {{ n.event.title }}
+                  {% else %}
+                    &mdash;
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  {% if n.to_all_event_attendees %}
+                    <span class="badge bg-info text-dark">Todos</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Usuario único</span>
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  <span class="badge {% if n.priority == 'high' %}bg-danger{% elif n.priority == 'normal' %}bg-primary{% else %}bg-secondary{% endif %}">
+                    {{ n.get_priority_display }}
+                  </span>
+                </td>
+                <td class="align-middle">{{ n.formatted_date }}</td>
+                <td class="text-end align-middle">
+                  <form method="post" action="{% url 'notifications_read' n.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-success" title="Marcar como leída" aria-label="Marcar como leída">✔</button>
+                  </form>
+                  <a href="{% url 'notifications_detail' n.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">👁️</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-center text-muted py-3">No tenés notificaciones aún.</td></tr>
+            {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
     </div>
   </div>
 
   {% if request.user.is_authenticated and request.user.is_organizer %}
     <a href="{% url 'create_notification' %}" class="btn btn-success mt-3">+ Crear Notificación</a>
   {% endif %}
+  
   <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // Manejador para quitar filtros desde burbujas
-    document.querySelectorAll(".filter-bubble").forEach(bubble => {
-      bubble.addEventListener("click", function () {
-        const param = this.dataset.param;
-        const url = new URL(window.location.href);
-        url.searchParams.delete(param);
-        window.location.href = url.toString();
+    document.addEventListener("DOMContentLoaded", function () {
+      // Manejador para quitar filtros desde burbujas
+      document.querySelectorAll(".filter-bubble").forEach(bubble => {
+        bubble.addEventListener("click", function () {
+          const param = this.dataset.param;
+          const url = new URL(window.location.href);
+          url.searchParams.delete(param);
+          window.location.href = url.toString();
+        });
       });
     });
-  });
-</script>
+  </script>
 </div>
 {% endblock %}

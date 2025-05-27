@@ -5,7 +5,8 @@ from django.contrib.auth.models import AbstractUser, User  # type: ignore
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 # ------------------- Usuario -------------------
 class User(AbstractUser):
@@ -83,6 +84,7 @@ class Event(models.Model):
 
         return errors
 
+    
     @classmethod
     def new(cls, title, description, venue, scheduled_at, organizer, categories):
         errors = Event.validate(title, description, venue, scheduled_at, categories)
@@ -111,6 +113,37 @@ class Event(models.Model):
             self.categories.set(categories)
 
         self.save()
+
+@receiver(pre_save, sender=Event)
+def notify_on_event_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return  # Evento nuevo, no hacer nada
+
+    previous = Event.objects.get(pk=instance.pk)
+    
+    # Detectar cambios
+    date_changed = previous.scheduled_at != instance.scheduled_at
+    location_changed = previous.venue != instance.venue
+
+    if date_changed or location_changed:
+        # Armamos detalles del cambio
+        changes = []
+        if date_changed:
+            changes.append(f"📅 Fecha: {previous.scheduled_at.strftime('%d/%m/%Y')} → {instance.scheduled_at.strftime('%d/%m/%Y')}")
+        if location_changed:
+            changes.append(f"📍 Lugar: {previous.venue} → {instance.venue}")
+        
+        message = f"El evento '{instance}' ha sido actualizado:\n" + "\n".join(changes)
+
+        Notification.objects.create(
+            event=instance,
+            to_all_event_attendees=True,
+            title="🛎️ ¡Cambio importante en tu evento!",
+            message=message,
+            priority="high",
+            created_by=instance.organizer
+        )
+
 
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

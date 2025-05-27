@@ -690,6 +690,12 @@ def notifications_list(request):
     query = request.GET.get("q", "")
     filter_event = request.GET.get("event")
     filter_priority = request.GET.get("priority")
+    order_by = request.GET.get("order_by", "-created_at")  # Orden por defecto descendente fecha de envío
+
+    # Campos permitidos para ordenar
+    allowed_orders = ['title', '-title', 'event__title', '-event__title', 'created_at', '-created_at']
+    if order_by not in allowed_orders:
+        order_by = "-created_at"
 
     tickets_user_events = Event.objects.filter(tickets__user=request.user).distinct()
 
@@ -705,13 +711,17 @@ def notifications_list(request):
     if filter_priority:
         received_notifications = received_notifications.filter(priority=filter_priority)
 
+    # Aplicar ordenamiento
+    received_notifications = received_notifications.order_by(order_by)
+
     # Agregar fecha formateada
     for notif in received_notifications:
-        notif.formatted_date = format_datetime_es(notif.created_at) # type: ignore
+        notif.formatted_date = format_datetime_es(notif.created_at)  # type: ignore
 
     sent_notifications = None
     if hasattr(request.user, 'is_organizer') and request.user.is_organizer:
         sent_notifications = Notification.objects.filter(created_by=request.user)
+
         if query:
             sent_notifications = sent_notifications.filter(title__icontains=query)
         if filter_event:
@@ -719,8 +729,11 @@ def notifications_list(request):
         if filter_priority:
             sent_notifications = sent_notifications.filter(priority=filter_priority)
 
+        # Aplicar mismo ordenamiento
+        sent_notifications = sent_notifications.order_by(order_by)
+
         for notif in sent_notifications:
-            notif.formatted_date = format_datetime_es(notif.created_at) # type: ignore
+            notif.formatted_date = format_datetime_es(notif.created_at)  # type: ignore
 
     all_events = tickets_user_events
 
@@ -731,7 +744,9 @@ def notifications_list(request):
         "filter_event": filter_event,
         "filter_priority": filter_priority,
         "query": query,
+        "order_by": order_by,
     })
+
 @login_required
 def create_notification(request):
     if not request.user.is_organizer:
