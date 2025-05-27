@@ -229,6 +229,12 @@ class Ticket(models.Model):
             self.ticket_code = str(uuid.uuid4()).replace('-', '')[:10].upper()
         super().save(*args, **kwargs)
 
+    @classmethod
+    def entradas_disponibles_para_usuario(cls, user, event):
+        cantidad_actual = cls.objects.filter(user=user, event=event).aggregate(models.Sum('quantity'))['quantity__sum'] or 0
+        return 4 - cantidad_actual
+
+
 # ------------------- Notificación -------------------
 class Notification(models.Model):
     # Destinatario específico (opcional)
