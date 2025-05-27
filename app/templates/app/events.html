@@ -20,13 +20,6 @@
         {% endif %}
     </div>
 
-    {# Mostramos el mensaje informativo si no hay eventos próximos visibles #}
-    {% if no_future_events_message %}
-        <div class="alert alert-info" role="alert">
-            <p class="mb-0">{{ no_future_events_message }}</p>
-        </div>
-    {% endif %}
-
     <div class="table-wrapper-events">
         <div class="draggable-scroll" id="eventTableScroll">
             <table class="table table-hover table-events">
@@ -107,9 +100,11 @@
                             </td>
                         </tr>
                     {% empty %}
-                        {# Este bloque se activará solo si 'events' está vacía y 'no_future_events_message' no se mostró (ej. si no hay eventos del todo) #}
+                        {# Mostramos el mensaje informativo si no hay eventos próximos visibles #}
                         <tr>
-                            <td colspan="6" class="text-center">No hay eventos disponibles para mostrar.</td>
+                            <td colspan="6" class="text-center">
+                                {{ no_future_events_message|default:"No hay eventos disponibles." }}
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>

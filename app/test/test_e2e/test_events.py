@@ -45,7 +45,7 @@ class EventBaseTest(BaseE2ETest):
         )
 
         # Crear eventos de prueba
-        event_date1 = timezone.make_aware(datetime.datetime(2025, 2, 10, 10, 10))
+        event_date1 = timezone.make_aware(datetime.datetime(3025, 2, 10, 10, 10))
         self.event1 = Event.objects.create(
             title="Evento de prueba 1",
             description="Descripción del evento 1",
@@ -55,7 +55,7 @@ class EventBaseTest(BaseE2ETest):
         )
         self.event1.categories.add(self.category)
 
-        event_date2 = timezone.make_aware(datetime.datetime(2025, 3, 15, 14, 30))
+        event_date2 = timezone.make_aware(datetime.datetime(3025, 3, 15, 14, 30))
         self.event2 = Event.objects.create(
             title="Evento de prueba 2",
             description="Descripción del evento 2",
@@ -83,7 +83,7 @@ class EventBaseTest(BaseE2ETest):
         # Verificar datos del primer evento
         row0 = rows.nth(0)
         expect(row0.locator("td").nth(0)).to_have_text("Evento de prueba 1")
-        expect(row0.locator("td").nth(1)).to_have_text("10 Feb 2025, 10:10")
+        expect(row0.locator("td").nth(1)).to_have_text("10 Feb 3025, 10:10")
         expect(row0.locator("td").nth(2)).to_have_text("Centro Cultural")
         expect(row0.locator("td").nth(3)).to_have_text("organizador")
         expect(row0.locator("td").nth(4)).to_have_text("Música")
@@ -91,7 +91,7 @@ class EventBaseTest(BaseE2ETest):
         # Verificar datos del segundo evento
         row1 = rows.nth(1)
         expect(row1.locator("td").nth(0)).to_have_text("Evento de prueba 2")
-        expect(row1.locator("td").nth(1)).to_have_text("15 Mar 2025, 14:30")
+        expect(row1.locator("td").nth(1)).to_have_text("15 Mar 3025, 14:30")
         expect(row1.locator("td").nth(2)).to_have_text("Centro Cultural")
         expect(row1.locator("td").nth(3)).to_have_text("organizador")
         expect(row1.locator("td").nth(4)).to_have_text("Música")
@@ -232,6 +232,70 @@ class EventDisplayTest(EventBaseTest):
         # Formulario de calificación (aparece solo si no calificó)
         expect(self.page.locator("#rating-form")).to_be_visible()
 
+    def test_regular_user_hides_past_events(self):
+        """Un usuario regular solo debe ver los eventos futuros en la tabla"""
+        # Creamos un evento en el pasado
+        past_event = Event.objects.create(
+            title="Pasado",
+            description="Debe ocultarse",
+            scheduled_at=timezone.now() - datetime.timedelta(days=1),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event.categories.add(self.category)
+
+        # Creamos un evento extra en el futuro
+        future_event = Event.objects.create(
+            title="Futuro",
+            description="Debe mostrarse",
+            scheduled_at=timezone.now() + datetime.timedelta(days=5),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        future_event.categories.add(self.category)
+
+        # Login como usuario regular
+        self.login_user("usuario", "password123")
+        self.page.goto(f"{self.live_server_url}/events/")
+
+        # Contamos las filas de la tabla y comprobamos que solo aparece el evento futuro
+        rows = self.page.locator("table tbody tr")
+        expect(rows).to_have_count(3)  # 2 eventos ya existentes por setup para otros tests + 1 "Futuro" creado aquí
+        expect(rows.nth(0).locator("td").nth(0)).to_have_text("Futuro")
+        # Aseguramos que el título del evento pasado no esté en la página
+        expect(self.page.locator("text=E2E Pasado")).to_have_count(0)
+
+    def test_regular_user_no_future_events_shows_alert(self):
+        """Si todos los eventos han pasado, debe verse el mensaje informativo"""
+        # Eliminamos todos los eventos y dejamos solo pasados
+        Event.objects.all().delete()
+        past1 = Event.objects.create(
+            title="Solo Pasado 1",
+            description="Ocultar 1",
+            scheduled_at=timezone.now() - datetime.timedelta(days=2),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past1.categories.add(self.category)
+        past2 = Event.objects.create(
+            title="Solo Pasado 2",
+            description="Ocultar 2",
+            scheduled_at=timezone.now() - datetime.timedelta(hours=5),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past2.categories.add(self.category)
+
+        self.login_user("usuario", "password123")
+        self.page.goto(f"{self.live_server_url}/events/")
+
+        # Debe aparecer el mensaje informativo
+        expect(
+            self.page.locator("table td.text-center >> text=Actualmente no hay eventos próximos visibles.")
+        ).to_be_visible()
+        # Y la tabla no debe mostrar ninguna fila de evento, pero si 1 fila con el mensaje
+        expect(self.page.locator("table tbody tr")).to_have_count(1) 
+
 
 class EventPermissionsTest(EventBaseTest):
     """Tests relacionados con los permisos de usuario para diferentes funcionalidades"""
@@ -282,7 +346,7 @@ class EventCRUDTest(EventBaseTest):
         # Completar el formulario
         self.page.get_by_label("Título del Evento").fill("Evento de prueba E2E")
         self.page.get_by_label("Descripción").fill("Descripción creada desde prueba E2E")
-        self.page.get_by_label("Fecha").fill("2025-06-15")
+        self.page.get_by_label("Fecha").fill("3025-06-15")
         self.page.get_by_label("Hora").fill("16:45")
 
         # Agregar estos dos 👇
@@ -302,7 +366,7 @@ class EventCRUDTest(EventBaseTest):
         row = self.page.locator("table tbody tr").last
         row = self.page.locator("table tbody tr").last
         expect(row.locator("td").nth(0)).to_have_text("Evento de prueba E2E")
-        expect(row.locator("td").nth(1)).to_have_text("15 Jun 2025, 16:45")
+        expect(row.locator("td").nth(1)).to_have_text("15 Jun 3025, 16:45")
 
 
 
@@ -334,8 +398,8 @@ class EventCRUDTest(EventBaseTest):
         description.fill("Descripcion Editada")
 
         date = self.page.get_by_label("Fecha")
-        expect(date).to_have_value("2025-02-10")
-        date.fill("2025-04-20")
+        expect(date).to_have_value("3025-02-10")
+        date.fill("3025-04-20")
 
         time = self.page.get_by_label("Hora")
         expect(time).to_have_value("10:10")
@@ -350,7 +414,7 @@ class EventCRUDTest(EventBaseTest):
         # Verificar que el título del evento ha sido actualizado
         row = self.page.locator("table tbody tr").last
         expect(row.locator("td").nth(0)).to_have_text("Titulo editado")
-        expect(row.locator("td").nth(1)).to_have_text("20 Abr 2025, 03:00")
+        expect(row.locator("td").nth(1)).to_have_text("20 Abr 3025, 03:00")
 
 
     def test_delete_event_organizer(self):
