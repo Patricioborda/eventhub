@@ -1,20 +1,29 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="containerTickets mt-4">
-  <h2 class="mb-3">Listado de Tickets</h2>
-  <ul class="list-group">
-    {% for ticket in tickets %}
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        {{ ticket }}  <!-- Aquí puedes personalizar lo que se muestra, si solo quieres mostrar el título de evento o el tipo de ticket -->
-        <span>
-          <a href="{% url 'ticket_update' ticket.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-          <a href="{% url 'ticket_delete' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
-        </span>
-      </li>
-    {% empty %}
-      <li class="list-group-item">No hay tickets aún.</li>
-    {% endfor %}
-  </ul>
+<div class="containerComentario mt-4">
+  <h2 class="mb-4">Mis Entradas</h2>
+
+  {% for ticket in tickets %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">{{ ticket.event.title }}</h5>
+          <div>
+            <a href="{% url 'ticket_update' ticket.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+            <a href="{% url 'ticket_delete' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+          </div>
+        </div>
+
+        <p><i class="bi bi-calendar-event"></i> {{ ticket.event.scheduled_at|date:"l, j \\d\\e F \\d\\e Y, H:i" }}</p>
+        <p><i class="bi bi-geo-alt"></i> {{ ticket.event.venue.name }} - {{ ticket.event.venue.city }}</p>
+        <p><i class="bi bi-ticket-perforated"></i> Cantidad: <strong>{{ ticket.quantity }}</strong></p>
+        <p><i class="bi bi-award"></i> Tipo: <strong>{{ ticket.get_type_display }}</strong></p>
+      </div>
+    </div>
+  {% empty %}
+    <div class="alert alert-info">Todavía no compraste entradas.</div>
+  {% endfor %}
 </div>
 {% endblock %}
