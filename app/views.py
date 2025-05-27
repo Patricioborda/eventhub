@@ -139,6 +139,11 @@ def event_detail(request, id):
     # Calcular user_is_organizer correctamente incluso para guest
     user_is_organizer = user == event.organizer if user else False
 
+    user_has_max_tickets = False
+    if user and not user_is_organizer:
+        disponibles = Ticket.entradas_disponibles_para_usuario(user, event)
+        user_has_max_tickets = disponibles <= 0
+
 
     # ---------- Flags de edición ----------
     edit_id   = request.GET.get("edit_rating")       # p.e. "17" ó None
@@ -192,6 +197,7 @@ def event_detail(request, id):
         "form":             form,
         "comments":         comments,
         "user_is_organizer": user_is_organizer,
+        "user_has_max_tickets": user_has_max_tickets,
     })
 
 @login_required
