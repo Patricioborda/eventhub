@@ -598,6 +598,8 @@ def ticket_create(request, event_id):
             ticket.event = event
             ticket.user = request.user
             ticket.save()
+            # Guardar el ticket_id en la sesión
+            request.session['last_ticket_id'] = ticket.id
             messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
             return redirect('survey_create', ticket_id=ticket.id)
     else:
@@ -917,12 +919,14 @@ def toggle_favorite(request, event_id):
 ################### feature/satisfaction-survey ################### 
 @login_required
 def survey_create(request, ticket_id):
-    """
-    Vista para crear una encuesta de satisfacción después de una compra exitosa.
-    Solo se puede acceder si el usuario es el dueño del ticket y no ha realizado una encuesta previa.
-    """
     ticket = get_object_or_404(Ticket, pk=ticket_id)
-    
+
+    # Permitir acceso solo si el ticket_id está en la sesión
+    last_ticket_id = request.session.get('last_ticket_id')
+    if last_ticket_id != ticket.id:
+        messages.error(request, 'No tienes permiso para acceder a esta encuesta.')
+        return redirect('ticket_list')
+
     # Verificar que el usuario sea el dueño del ticket
     if ticket.user != request.user:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -956,14 +960,15 @@ def survey_create(request, ticket_id):
             survey.ticket = ticket
             survey.user = request.user
             survey.save()
-            
+            # Eliminar el ticket_id de la sesión tras POST exitoso
+            if 'last_ticket_id' in request.session:
+                del request.session['last_ticket_id']
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'success': True,
                     'message': '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.',
                     'redirect_url': reverse('ticket_list')
                 })
-            
             messages.success(request, '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.')
             return redirect('ticket_list')
         else:
@@ -978,6 +983,7 @@ def survey_create(request, ticket_id):
             ticket=ticket,
             user=request.user
         )
+        # (No eliminar el ticket_id de la sesión en el GET)
 
     return render(request, 'app/survey/survey_form.html', {
         'form': form,
