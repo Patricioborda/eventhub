@@ -32,6 +32,7 @@ from .forms import (
     VenueForm,
     SatisfactionSurveyForm,
     DiscountCodeForm,
+    DiscountCodeEditForm,
 )
 from .models import (
     Category,
@@ -1159,6 +1160,7 @@ def discount_list(request):
     codes = DiscountCode.objects.filter(created_by=request.user)
     return render(request, 'discount/discount_list.html', {'codes': codes})
 
+# views.py
 @login_required
 def discount_create(request):
     if not request.user.is_organizer:
@@ -1167,22 +1169,51 @@ def discount_create(request):
     if request.method == 'POST':
         form = DiscountCodeForm(request.POST, user=request.user)
         if form.is_valid():
-            discount_code = form.save(commit=False)
-            selected_event = form.cleaned_data['event']
-
-            if selected_event is None:
-                discount_code.event = None
-                discount_code.apply_to_all = True
-            else:
-                discount_code.event = selected_event
-                discount_code.apply_to_all = False
-
-            discount_code.created_by = request.user
-            discount_code.save()
+            discount = form.save(commit=False)
+            discount.created_by = request.user
+            discount.save()
             return redirect('discount_list')
     else:
         form = DiscountCodeForm(user=request.user)
 
-    return render(request, 'discount/discount_form.html', {
-        'form': form,
-    })
+    return render(request, 'discount/discount_form.html', {'form': form})
+
+def discount_edit(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if request.method == 'POST':
+        form = DiscountCodeEditForm(request.POST, instance=code)
+        if form.is_valid():
+            form.save()
+            return redirect('discount_list')  # Cambia al nombre correcto de la url de la lista
+    else:
+        form = DiscountCodeEditForm(instance=code)
+
+    return render(request, 'discount/discount_edit.html', {'form': form, 'code': code})
+
+@login_required
+def discount_delete(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if not request.user.is_organizer or code.created_by != request.user:
+        return redirect('home')
+
+    if request.method == 'POST':
+        code.delete()
+        messages.success(request, "Código de descuento eliminado correctamente.")
+        return redirect('discount_list')
+
+    return render(request, "discount/discount_delete.html", context)
+
+
+@login_required
+def discount_detail(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if not request.user.is_organizer or code.created_by != request.user:
+        return redirect('home')
+
+    context = {
+        'code': code,
+    }
+    return render(request, "discount/discount_detail.html", context)

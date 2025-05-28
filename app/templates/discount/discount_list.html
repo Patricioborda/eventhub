@@ -46,7 +46,21 @@
                                     Sin fecha
                                 {% endif %}
                             </td>
-
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'discount_detail' code.id %}" class="btn btn-sm btn-outline-secondary" title="Ver">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'discount_edit' code.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="POST" action="{% url 'discount_delete' code.id %}" onsubmit="return confirm('¿Seguro que querés eliminar este código?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

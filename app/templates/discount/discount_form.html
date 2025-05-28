@@ -103,13 +103,29 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <label for="id_event" class="form-label">Evento</label>
-                                {{ form.event }}
-                                {% for error in form.event.errors %}
-                                    <div class="invalid-feedback d-block">{{ error }}</div>
-                                {% endfor %}
-                            </div>
+                                <div>
+                                    <label for="{{ form.event.id_for_label }}" class="form-label">Evento</label>
+                                    <select
+                                        class="form-select {% if form.event.errors %}is-invalid{% endif %}"
+                                        id="{{ form.event.id_for_label }}"
+                                        name="{{ form.event.html_name }}"
+                                    >
+                                        {% for val, label in form.event.field.choices %}
+                                            <option
+                                                value="{{ val }}"
+                                                {% if form.event.value|stringformat:"s" == val %}selected{% endif %}
+                                            >{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if form.event.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.event.errors %}
+                                                {{ error }}<br>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
 
                             <div>
                                 <button type="submit" class="btn btn-eventgub-green crearEvento">
