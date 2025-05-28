@@ -470,4 +470,52 @@ class SatisfactionSurvey(models.Model):
         # Validar que el rating sea requerido
         if not self.rating:
             raise ValidationError({'rating': 'La calificación es obligatoria'})        
-       
+
+ # -------------------  Descuentos  -------------------
+class DiscountCode(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('fixed', 'Monto fijo ($)'),
+        ('percent', 'Porcentaje (%)'),
+    ]
+    created_at = models.DateTimeField(default=timezone.now)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True)
+    valid_from = models.DateField()
+    valid_until = models.DateField(blank=True, null=True)
+    max_uses = models.PositiveIntegerField(blank=True, null=True)
+    uses = models.PositiveIntegerField(default=0)
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+    event = models.ForeignKey('Event', on_delete=models.SET_NULL, blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    apply_to_all = models.BooleanField(default=False)
+
+    def clean(self):
+        # Validar fechas
+        if self.valid_until and self.valid_from > self.valid_until:
+            raise ValidationError({'valid_until': 'La fecha de finalización debe ser mayor o igual a la fecha de inicio.'})
+
+        if self.valid_from < timezone.now().date():
+            raise ValidationError({'valid_from': 'La fecha de inicio no puede ser en el pasado.'})
+            # Validar longitud de descripción
+        if self.description and len(self.description) > 500:
+            raise ValidationError({'description': f'La descripción no puede tener más de 500 caracteres.'})
+
+        # Validar valor del descuento
+        if self.discount_value <= 0:
+            raise ValidationError({'discount_value': 'El valor del descuento debe ser mayor que cero.'})
+
+        if self.discount_type == 'percent' and (self.discount_value > 100 or self.discount_value <= 0):
+            raise ValidationError({'discount_value': 'El porcentaje debe estar entre 1 y 100.'})
+
+        # Validar usos
+        if self.max_uses is not None and self.uses > self.max_uses:
+            raise ValidationError({'uses': 'Las veces usadas no pueden superar el máximo de usos permitidos.'})
+
+        # Validar evento y apply_to_all
+        if self.apply_to_all and self.event is not None:
+            raise ValidationError({'event': 'No se puede asignar un evento si aplica a todos los eventos.'})
+
+
+    def __str__(self):
+        return self.code

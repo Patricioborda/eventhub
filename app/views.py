@@ -31,6 +31,7 @@ from .forms import (
     TicketForm,
     VenueForm,
     SatisfactionSurveyForm,
+    DiscountCodeForm,
 )
 from .models import (
     Category,
@@ -44,6 +45,7 @@ from .models import (
     User,
     Venue,
     SatisfactionSurvey,
+    DiscountCode,
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -1145,4 +1147,42 @@ def survey_detail(request, survey_id):
     
     return render(request, 'app/survey_detail.html', {
         'survey': survey
+    })
+
+
+
+@login_required
+def discount_list(request):
+    if not request.user.is_organizer:
+        return redirect('home')
+
+    codes = DiscountCode.objects.filter(created_by=request.user)
+    return render(request, 'discount/discount_list.html', {'codes': codes})
+
+@login_required
+def discount_create(request):
+    if not request.user.is_organizer:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = DiscountCodeForm(request.POST, user=request.user)
+        if form.is_valid():
+            discount_code = form.save(commit=False)
+            selected_event = form.cleaned_data['event']
+
+            if selected_event is None:
+                discount_code.event = None
+                discount_code.apply_to_all = True
+            else:
+                discount_code.event = selected_event
+                discount_code.apply_to_all = False
+
+            discount_code.created_by = request.user
+            discount_code.save()
+            return redirect('discount_list')
+    else:
+        form = DiscountCodeForm(user=request.user)
+
+    return render(request, 'discount/discount_form.html', {
+        'form': form,
     })

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="containerEventos mt-5">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Códigos de Regalo</h1>
+            <a href="{% url 'discount_create' %}" class="btn btn-eventgub-green">Crear nuevo código</a>
+        </div>
+    </div>
+
+    {% if codes %}
+    <div class="row">
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Código</th>
+                            <th scope="col">Evento</th>
+                            <th scope="col">Descripción</th>
+                            <th scope="col">Válido Desde</th>
+                            <th scope="col">Válido Hasta</th>
+                            <th scope="col" style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for code in codes %}
+                        <tr>
+                            <td><span class="fw-bold">{{ code.code }}</span></td>
+<td>
+{% if code.apply_to_all %}
+  Todos
+{% elif code.event %}
+  {{ code.event.title }}
+{% else %}
+  Ninguno
+{% endif %}
+</td>
+                            <td>{{ code.description|default:"-" }}</td>
+                            <td>{{ code.valid_from|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if code.valid_until %}
+                                    {{ code.valid_until|date:"d/m/Y" }}
+                                {% else %}
+                                    Sin fecha
+                                {% endif %}
+                            </td>
+
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning text-center">
+        No hay códigos de regalo registrados aún.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

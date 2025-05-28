@@ -58,5 +58,6 @@ urlpatterns = [
     path("refunds/<int:id>/reject/", views.reject_refund_request, name="reject_refund_request"),
     path("favorites/", views.favorites_list, name="favorites_list"),
     path('favorites/toggle/<int:event_id>/', views.toggle_favorite, name='toggle_favorite'),
-
+    path('discount', views.discount_list, name='discount_list'),
+    path('discount/new/', views.discount_create, name='discount_create'),
 ]
