@@ -19,6 +19,7 @@ from django.contrib import messages
 
 from django.views.decorators.http import require_POST
 from datetime import datetime
+from django.db import models
 
 
 from .forms import (
@@ -29,6 +30,7 @@ from .forms import (
     RefundRequestForm,
     TicketForm,
     VenueForm,
+    SatisfactionSurveyForm,
 )
 from .models import (
     Category,
@@ -41,6 +43,7 @@ from .models import (
     Ticket,
     User,
     Venue,
+    SatisfactionSurvey,
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -169,6 +172,11 @@ def event_detail(request, id):
     # Calcular user_is_organizer correctamente incluso para guest
     user_is_organizer = user == event.organizer if user else False
 
+    user_has_max_tickets = False
+    if user and not user_is_organizer:
+        disponibles = Ticket.entradas_disponibles_para_usuario(user, event)
+        user_has_max_tickets = disponibles <= 0
+
 
     # ---------- Flags de edición ----------
     edit_id   = request.GET.get("edit_rating")       # p.e. "17" ó None
@@ -222,6 +230,7 @@ def event_detail(request, id):
         "form":             form,
         "comments":         comments,
         "user_is_organizer": user_is_organizer,
+        "user_has_max_tickets": user_has_max_tickets,
     })
 
 @login_required
@@ -616,31 +625,88 @@ def ticket_create(request, event_id):
             ticket = form.save(commit=False)
             ticket.event = event
             ticket.user = request.user
+
+            disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+            existentes = 4 - disponibles
+
+            if ticket.quantity > disponibles:
+                messages.error(
+                    request,
+                    f"No puedes comprar más de 4 entradas por evento. Ya compraste {existentes}."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': existentes,
+                    'entradas_disponibles': disponibles,
+                })
+
             ticket.save()
-            return redirect('ticket_list')
+            # Guardar el ticket_id en la sesión
+            request.session['last_ticket_id'] = ticket.id
+            #messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
+            return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
+        disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+        existentes = 4 - disponibles
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': event
+        'event': event,
+        'entradas_existentes': existentes,
+        'entradas_disponibles': disponibles,
     })
 
 
 @login_required
 def ticket_update(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    event = ticket.event
+
     if request.method == 'POST':
         form = TicketForm(request.POST, instance=ticket)
         if form.is_valid():
+            entradas_actuales = Ticket.objects.filter(
+                user=request.user,
+                event=event
+            ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+            nuevas = form.cleaned_data['quantity']
+            total = entradas_actuales + nuevas
+
+            if total > 4:
+                disponibles = 4 - entradas_actuales
+                messages.error(
+                    request,
+                    f"No puedes tener más de 4 entradas por evento. Ya compraste {entradas_actuales}, puedes modificar hasta {disponibles} entradas."
+                )
+                return render(request, 'app/ticket/ticket_form.html', {
+                    'form': form,
+                    'event': event,
+                    'entradas_existentes': entradas_actuales,
+                    'entradas_disponibles': disponibles,
+                })
+
             form.save()
             return redirect('ticket_list')
     else:
         form = TicketForm(instance=ticket)
 
+        entradas_actuales = Ticket.objects.filter(
+            user=request.user,
+            event=ticket.event
+        ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+
+        disponibles = 4 - entradas_actuales
+        form.fields['quantity'].widget.attrs['data-max'] = disponibles
+
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
-        'event': ticket.event
+        'event': ticket.event,
+        'entradas_existentes': entradas_actuales,
+        'entradas_disponibles': disponibles,
     })
 
 
@@ -733,6 +799,12 @@ def notifications_list(request):
     query = request.GET.get("q", "")
     filter_event = request.GET.get("event")
     filter_priority = request.GET.get("priority")
+    order_by = request.GET.get("order_by", "-created_at")  # Orden por defecto descendente fecha de envío
+
+    # Campos permitidos para ordenar
+    allowed_orders = ['title', '-title', 'event__title', '-event__title', 'created_at', '-created_at']
+    if order_by not in allowed_orders:
+        order_by = "-created_at"
 
     tickets_user_events = Event.objects.filter(tickets__user=request.user).distinct()
 
@@ -748,13 +820,17 @@ def notifications_list(request):
     if filter_priority:
         received_notifications = received_notifications.filter(priority=filter_priority)
 
+    # Aplicar ordenamiento
+    received_notifications = received_notifications.order_by(order_by)
+
     # Agregar fecha formateada
     for notif in received_notifications:
-        notif.formatted_date = format_datetime_es(notif.created_at) # type: ignore
+        notif.formatted_date = format_datetime_es(notif.created_at)  # type: ignore
 
     sent_notifications = None
     if hasattr(request.user, 'is_organizer') and request.user.is_organizer:
         sent_notifications = Notification.objects.filter(created_by=request.user)
+
         if query:
             sent_notifications = sent_notifications.filter(title__icontains=query)
         if filter_event:
@@ -762,8 +838,11 @@ def notifications_list(request):
         if filter_priority:
             sent_notifications = sent_notifications.filter(priority=filter_priority)
 
+        # Aplicar mismo ordenamiento
+        sent_notifications = sent_notifications.order_by(order_by)
+
         for notif in sent_notifications:
-            notif.formatted_date = format_datetime_es(notif.created_at) # type: ignore
+            notif.formatted_date = format_datetime_es(notif.created_at)  # type: ignore
 
     all_events = tickets_user_events
 
@@ -774,7 +853,9 @@ def notifications_list(request):
         "filter_event": filter_event,
         "filter_priority": filter_priority,
         "query": query,
+        "order_by": order_by,
     })
+
 @login_required
 def create_notification(request):
     if not request.user.is_organizer:
@@ -931,3 +1012,137 @@ def toggle_favorite(request, event_id):
         return JsonResponse({"favorito": False})
     else:
         return JsonResponse({"favorito": True})
+
+################### feature/satisfaction-survey ################### 
+@login_required
+def survey_create(request, ticket_id):
+    ticket = get_object_or_404(Ticket, pk=ticket_id)
+
+    # Permitir acceso solo si el ticket_id está en la sesión
+    last_ticket_id = request.session.get('last_ticket_id')
+    if last_ticket_id != ticket.id:
+        messages.error(request, 'No tienes permiso para acceder a esta encuesta.')
+        return redirect('ticket_list')
+
+    # Verificar que el usuario sea el dueño del ticket
+    if ticket.user != request.user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permiso para realizar esta acción'
+            }, status=403)
+        messages.error(request, 'No tienes permiso para realizar esta acción')
+        return redirect('events')
+    
+    # Verificar que no exista una encuesta previa
+    if SatisfactionSurvey.objects.filter(ticket=ticket, user=request.user).exists():
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Ya has realizado una encuesta para este ticket'
+            }, status=400)
+        messages.info(request, 'Ya has realizado una encuesta para este ticket')
+        return redirect('event_detail', id=ticket.event.id)
+
+    if request.method == 'POST':
+        form = SatisfactionSurveyForm(
+            request.POST,
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+        if form.is_valid():
+            survey = form.save(commit=False)
+            survey.event = ticket.event
+            survey.ticket = ticket
+            survey.user = request.user
+            survey.save()
+            # Eliminar el ticket_id de la sesión tras POST exitoso
+            if 'last_ticket_id' in request.session:
+                del request.session['last_ticket_id']
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'message': '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.',
+                    'redirect_url': reverse('ticket_list')
+                })
+            messages.success(request, '¡Gracias por tu opinión! Valoramos mucho tus palabras y nos ayudan a mejorar cada día.')
+            return redirect('ticket_list')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'errors': form.errors
+                }, status=400)
+    else:
+        form = SatisfactionSurveyForm(
+            event=ticket.event,
+            ticket=ticket,
+            user=request.user
+        )
+        # (No eliminar el ticket_id de la sesión en el GET)
+
+    return render(request, 'app/survey/survey_form.html', {
+        'form': form,
+        'ticket': ticket,
+        'event': ticket.event
+    })
+
+@login_required
+def survey_list(request):
+    """
+    Vista para listar todas las encuestas de satisfacción.
+    Solo accesible para administradores.
+    """
+    if not request.user.is_staff:
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('home')
+
+    # Obtener todas las encuestas con información relacionada
+    surveys = SatisfactionSurvey.objects.select_related(
+        'event', 'user', 'ticket'
+    ).order_by('-created_at')
+
+    # Calcular estadísticas
+    total_surveys = surveys.count()
+    avg_rating = surveys.aggregate(
+        avg=models.Avg('rating')
+    )['avg'] or 0
+
+    # Distribución de calificaciones
+    rating_distribution = surveys.values('rating').annotate(
+        count=models.Count('id')
+    ).order_by('rating')
+
+    # Calcular porcentaje para cada rating
+    distribution = []
+    for dist in rating_distribution:
+        percent = (dist['count'] / total_surveys * 100) if total_surveys else 0
+        distribution.append({
+            'rating': dist['rating'],
+            'count': dist['count'],
+            'percent': percent,
+        })
+
+    return render(request, 'app/survey/admin_list.html', {
+        'surveys': surveys,
+        'total_surveys': total_surveys,
+        'avg_rating': round(avg_rating, 1),
+        'rating_distribution': distribution,
+    })
+
+@login_required
+def survey_detail(request, survey_id):
+    """
+    Vista para ver los detalles de una encuesta específica.
+    Solo accesible para administradores o el usuario que la creó.
+    """
+    survey = get_object_or_404(SatisfactionSurvey, pk=survey_id)
+    
+    if not (request.user.is_staff or survey.user == request.user):
+        messages.error(request, 'No tienes permiso para acceder a esta página')
+        return redirect('events')
+    
+    return render(request, 'app/survey_detail.html', {
+        'survey': survey
+    })
