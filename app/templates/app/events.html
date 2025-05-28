@@ -34,6 +34,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {# El bucle 'for' itera sobre la lista 'events', que ahora solo contiene los eventos futuros #}
                     {% for event in events %}
                         <tr>
                             <td>{{ event.title }}</td>
@@ -59,7 +60,6 @@
                             </td>
                             <td>
                                 <div class="hstack gap-1">
-                                    <!-- Botón de favorito -->
                                     <button class="btn btn-sm btn-fav-toggle"
                                             title="Marcar como favorito"
                                             aria-label="Marcar como favorito"
@@ -71,7 +71,6 @@
                                         {% endif %}
                                     </button>
 
-                                    <!-- Ver Detalle -->
                                     <a href="{% url 'event_detail' event.id %}"
                                        class="btn btn-sm btn-outline-primary"
                                        title="Ver detalle"
@@ -80,7 +79,6 @@
                                     </a>
 
                                     {% if user_is_organizer %}
-                                        <!-- Editar -->
                                         <a href="{% url 'event_edit' event.id %}"
                                            class="btn btn-sm btn-outline-secondary"
                                            title="Editar"
@@ -88,7 +86,6 @@
                                             <i class="bi bi-pencil" aria-hidden="true"></i>
                                         </a>
 
-                                        <!-- Eliminar -->
                                         <form action="{% url 'event_delete' event.id %}" method="POST" style="display: inline;">
                                             {% csrf_token %}
                                             <button type="submit"
@@ -103,8 +100,11 @@
                             </td>
                         </tr>
                     {% empty %}
+                        {# Mostramos el mensaje informativo si no hay eventos próximos visibles #}
                         <tr>
-                            <td colspan="6" class="text-center">No hay eventos disponibles</td>
+                            <td colspan="6" class="text-center">
+                                {{ no_future_events_message|default:"No hay eventos disponibles." }}
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>

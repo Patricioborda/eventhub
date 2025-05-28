@@ -45,6 +45,11 @@ class Venue(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.city}"
+    
+
+class EventManager(models.Manager):
+    def future_events(self):
+        return self.filter(scheduled_at__gt=timezone.now())
 
 #-------------------- Event -------------------
 class Event(models.Model):
@@ -61,6 +66,13 @@ class Event(models.Model):
             now = timezone.now()
             diff = (self.scheduled_at - now).total_seconds()
             return int(diff) if diff > 0 else 0
+    
+    @property
+    def has_passed(self):
+        """
+        Determina si el evento ya ha pasado.
+        """
+        return self.scheduled_at < timezone.now()
     
     def __str__(self):
         return self.title

@@ -110,6 +110,104 @@ class EventsListViewTest(BaseEventTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.url.startswith("/accounts/login/")) # type: ignore
 
+    def test_regular_user_sees_only_future_events(self):
+        """Un usuario regular solo debe ver los eventos que no han pasado"""
+        # Creamos un evento en el pasado
+        past_event = Event.objects.create(
+            title="Evento Pasado",
+            description="Ya ocurrió",
+            scheduled_at=timezone.now() - datetime.timedelta(days=1),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event.categories.add(self.category)
+
+        # Creamos un evento en el futuro
+        future_event = Event.objects.create(
+            title="Evento Futuro",
+            description="Ocurrirá pronto",
+            scheduled_at=timezone.now() + datetime.timedelta(days=3),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        future_event.categories.add(self.category)
+
+        # Login como usuario regular
+        self.client.login(username="regular", password="password123")
+        response = self.client.get(reverse("events"))
+
+        self.assertEqual(response.status_code, 200)
+        events = list(response.context["events"])
+        # Debe contener solo el evento futuro
+        self.assertIn(future_event, events)
+        self.assertNotIn(past_event, events)
+
+    def test_regular_user_no_future_events_shows_message(self):
+        """Si todos los eventos pasaron, debe mostrarse no_future_events_message"""
+        # Eliminamos los eventos existentes de setUp y creamos solo eventos pasados
+        Event.objects.all().delete()
+        past_event1 = Event.objects.create(
+            title="Pasado 1",
+            description="Ya ocurrió",
+            scheduled_at=timezone.now() - datetime.timedelta(days=2),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event1.categories.add(self.category)
+        past_event2 = Event.objects.create(
+            title="Pasado 2",
+            description="Ya ocurrió",
+            scheduled_at=timezone.now() - datetime.timedelta(days=1),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event2.categories.add(self.category)
+
+        self.client.login(username="regular", password="password123")
+        response = self.client.get(reverse("events"))
+
+        self.assertEqual(response.status_code, 200)
+        # No debe haber eventos en el contexto
+        self.assertEqual(len(response.context["events"]), 0)
+        # Debe aparecer el mensaje definido en la view
+        self.assertEqual(
+            response.context["no_future_events_message"],
+            "Actualmente no hay eventos próximos visibles."
+        )
+
+    def test_organizer_sees_past_and_future_events(self):
+        """Un organizador debe ver todos los eventos, pasados y futuros"""
+        # Creamos un evento en el pasado
+        past_event = Event.objects.create(
+            title="Evento Pasado Org",
+            description="Pasó ya",
+            scheduled_at=timezone.now() - datetime.timedelta(days=1),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        past_event.categories.add(self.category)
+
+        # Creamos un evento en el futuro
+        future_event = Event.objects.create(
+            title="Evento Futuro Org",
+            description="Por venir",
+            scheduled_at=timezone.now() + datetime.timedelta(days=2),
+            organizer=self.organizer,
+            venue=self.venue
+        )
+        future_event.categories.add(self.category)
+
+        self.client.login(username="organizador", password="password123")
+        response = self.client.get(reverse("events"))
+
+        self.assertEqual(response.status_code, 200)
+        events = list(response.context["events"])
+        # Debe contener ambos eventos
+        self.assertIn(past_event, events)
+        self.assertIn(future_event, events)
+        # Y no_future_events_message debe ser None
+        self.assertIsNone(response.context["no_future_events_message"])
+
 
 class EventDetailViewTest(BaseEventTestCase):
     """Tests para la vista de detalle de un evento"""
@@ -398,3 +496,4 @@ class EventDeleteViewTest(BaseEventTestCase):
         self.assertIn("countdown_seconds", response.context)
 
         self.assertEqual(response.context["countdown_seconds"], 0)
+

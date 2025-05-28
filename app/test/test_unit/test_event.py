@@ -204,3 +204,28 @@ class EventModelTest(TestCase):
         )
         countdown = event.countdown_seconds()
         self.assertEqual(countdown, 0)
+
+    def test_has_passed_returns_true_for_past_event(self):
+        """Verifica que has_passed retorna True para un evento en el pasado"""
+        past_time = timezone.now() - datetime.timedelta(days=1)
+        event = Event.objects.create(
+            title="Evento pasado",
+            description="Evento que ya ocurrió",
+            scheduled_at=past_time,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        self.assertTrue(event.has_passed)
+
+    def test_has_passed_returns_false_for_future_event(self):
+        """Verifica que has_passed retorna False para un evento en el futuro"""
+        future_time = timezone.now() + datetime.timedelta(days=1)
+        event = Event.objects.create(
+            title="Evento futuro",
+            description="Evento que ocurrirá pronto",
+            scheduled_at=future_time,
+            organizer=self.organizer,
+            venue=self.venue,
+        )
+        self.assertFalse(event.has_passed)
+
