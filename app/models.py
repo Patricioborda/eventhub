@@ -5,6 +5,8 @@ from django.contrib.auth.models import AbstractUser, User  # type: ignore
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 from datetime import timedelta
 from django.core.validators import MinValueValidator, MaxValueValidator
 
@@ -91,6 +93,7 @@ class Event(models.Model):
 
         return errors
 
+    
     @classmethod
     def new(cls, title, description, venue, scheduled_at, organizer, categories):
         errors = Event.validate(title, description, venue, scheduled_at, categories)
@@ -119,6 +122,38 @@ class Event(models.Model):
             self.categories.set(categories)
 
         self.save()
+
+@receiver(pre_save, sender=Event)
+def notify_on_event_change(sender, instance, **kwargs):
+    if not instance.pk:
+        return  # Evento nuevo, no hacer nada
+
+    previous = Event.objects.get(pk=instance.pk)
+    
+    # Detectar cambios
+    date_changed = previous.scheduled_at != instance.scheduled_at
+    location_changed = previous.venue != instance.venue
+
+    if date_changed or location_changed:
+        # Armamos detalles del cambio
+        changes = []
+        if date_changed:
+            changes.append(f"📅 Fecha y hora: {previous.scheduled_at.strftime('%d/%m/%Y %H:%M')} → {instance.scheduled_at.strftime('%d/%m/%Y %H:%M')}")
+        if location_changed:
+            changes.append(f"📍 Lugar: {previous.venue} → {instance.venue}")
+        
+        message = f"El evento '{instance}' ha sido actualizado:\n" + "\n".join(changes)
+
+        Notification.objects.create(
+            event=instance,
+            to_all_event_attendees=True,
+            title="🛎️ ¡Cambio importante en tu evento!",
+            message=message,
+            priority="high",
+            created_by=instance.organizer
+        )
+
+
 #---------------------------------------
 class Comment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -213,7 +248,8 @@ class Ticket(models.Model):
         verbose_name="Código del ticket"
     )
     quantity = models.PositiveIntegerField(
-        verbose_name="Cantidad de entradas"
+        verbose_name="Cantidad de entradas",
+        default=1
     )
     type = models.CharField(
         max_length=10,
@@ -288,7 +324,7 @@ class Notification(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
     # Fecha de creación (para registro)
     created_at = models.DateTimeField(auto_now_add=True)
-    # (Opcional) campo para rastrear el creador de la notificación
+    
     created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='notifications_created')
     is_read = models.BooleanField("Leída", default=False)
     def clean(self):

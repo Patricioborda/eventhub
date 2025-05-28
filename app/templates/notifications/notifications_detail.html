@@ -5,31 +5,34 @@
 <div class="containerNotificaciones my-5">
   <div class="row justify-content-center">
     <div class="col-lg-8">
-      <div class="form-notif">
+      <div class="form-notif p-4 border rounded shadow-sm bg-white">
+        
         <!-- Volver -->
         <button type="button" class="btn btn-outline-secondary mb-3" onclick="history.back()">← Volver</button>
 
-        <h2 class="mb-4">{{ notification.title }}</h2>
+        <!-- Título -->
+        <h2 class="mb-3">{{ notification.title }}</h2>
 
-        <!-- Fecha y prioridad -->
-        <p class="text-muted">
+        <!-- Metadata -->
+        <p class="text-muted mb-1">
           <i class="bi bi-calendar-event"></i>
           {{ notification.formatted_date }}
-          &nbsp;•&nbsp;
-          <i class="bi bi-star-fill text-warning"></i>
-          Prioridad: <strong>{{ notification.get_priority_display }}</strong>
+        </p>
+        <p class="text-muted mb-3">
+          <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+          Prioridad: <span class="fw-bold text-uppercase">{{ notification.get_priority_display }}</span>
         </p>
 
         <!-- Evento -->
         {% if notification.event %}
-        <p>
+        <p class="mb-2">
           <i class="bi bi-easel2"></i>
           Evento: <strong>{{ notification.event.title }}</strong>
         </p>
         {% endif %}
 
         <!-- Destinatario -->
-        <p>
+        <p class="mb-4">
           <i class="bi bi-person-circle"></i>
           Destinatario:
           {% if notification.to_all_event_attendees %}
@@ -39,11 +42,40 @@
           {% endif %}
         </p>
 
-        <!-- Contenido -->
+        <!-- Contenido con resaltado -->
         <hr>
-        <p class="mt-4" style="white-space: pre-line;">{{ notification.message }}</p>
+        <div class="mb-4">
+          {% with notification.message as msg %}
+            {% if "cambio de lugar" in msg|lower or "nuevo lugar" in msg|lower %}
+              <div class="alert alert-warning d-flex align-items-center gap-2">
+                <i class="bi bi-geo-alt-fill"></i>
+                <div><strong>¡Atención!</strong> Hubo un cambio de lugar.</div>
+              </div>
+            {% endif %}
+            {% if "cambio de horario" in msg|lower or "nueva hora" in msg|lower or "nuevo horario" in msg|lower %}
+              <div class="alert alert-warning d-flex align-items-center gap-2">
+                <i class="bi bi-clock-fill"></i>
+                <div><strong>¡Importante!</strong> Se modificó la hora del evento.</div>
+              </div>
+            {% endif %}
+            {% if "nueva fecha" in msg|lower or "cambio de fecha" in msg|lower %}
+              <div class="alert alert-warning d-flex align-items-center gap-2">
+                <i class="bi bi-calendar-plus-fill"></i>
+                <div><strong>Actualización:</strong> La fecha del evento ha cambiado.</div>
+              </div>
+            {% endif %}
+            <p style="white-space: pre-line;">{{ msg }}</p>
+          {% endwith %}
+        </div>
 
-        <!-- Marcar como leída -->
+        <!-- Botón Ver Evento -->
+        {% if notification.event %}
+          <a href="{% url 'event_detail' notification.event.id %}" class="btn btn-primary mb-3">
+            <i class="bi bi-calendar-range"></i> Ver evento
+          </a>
+        {% endif %}
+
+        <!-- Estado de lectura -->
         {% if notification.is_read %}
           <div class="alert alert-success mt-4 d-flex align-items-center gap-2">
             <i class="bi bi-check-circle-fill"></i> Esta notificación ya fue marcada como <strong>leída</strong>.
@@ -51,9 +83,10 @@
         {% else %}
           <form method="post" action="{% url 'notifications_read' notification.pk %}" class="mt-4">
             {% csrf_token %}
-            <button type="submit" class="btn btn-success">Marcar como leída</button>
+            <button type="submit" class="btn btn-success">✔ Marcar como leída</button>
           </form>
         {% endif %}
+        
       </div>
     </div>
   </div>

@@ -15,9 +15,9 @@
     <div class="col-sm-3">
       <select name="event" class="form-select">
         <option value="">Todos los eventos</option>
-        {% for event in all_events %}
-        <option value="{{ event.id }}" {% if request.GET.event == event.id|stringformat:"s" %}selected{% endif %}>
-          {{ event.title }}
+        {% for e in all_events %}
+        <option value="{{ e.id }}" {% if request.GET.event == e.id|stringformat:"s" %}selected{% endif %}>
+          {{ e.title }}
         </option>
         {% endfor %}
       </select>
@@ -43,10 +43,10 @@
       </span>
     {% endif %}
     {% if request.GET.event %}
-      {% for event in all_events %}
-        {% if event.id|stringformat:"s" == request.GET.event %}
+      {% for e in all_events %}
+        {% if e.id|stringformat:"s" == request.GET.event %}
           <span class="badge rounded-pill bg-secondary text-white me-2 text-decoration-none filter-bubble" data-param="event" style="cursor:pointer;">
-            🎫 {{ event.title }} ×
+            🎫 {{ e.title }} ×
           </span>
         {% endif %}
       {% endfor %}
@@ -77,11 +77,23 @@
                 {% for n in sent_notifications %}
                 <tr>
                     <td class="align-middle">{{ n.title }}</td>
-                    <td class="align-middle">{{ n.event.title|default:"—" }}</td>
+                    <td class="align-middle">
+                      {% if n.event %}
+                        {{ n.event.title }}
+                      {% else %}
+                        &mdash;
+                      {% endif %}
+                    </td>
                     <td class="align-middle">
                     {% if n.to_all_event_attendees %}
                         <span class="badge bg-info text-dark">
-                        Todos ({{ event_counts|get_item:n.event.id|stringformat:"s"|default:"1" }})
+                        Todos (
+                        {% if n.event %}
+                            {{ event_counts|get_item:n.event.id|stringformat:"s"|default:"1" }}
+                        {% else %}
+                            &mdash;
+                        {% endif %}
+                        )
                         </span>
                     {% else %}
                         <span class="badge bg-secondary">Usuario único</span>
@@ -104,7 +116,13 @@
                 {% for n in received_notifications %}
                 <tr class="{% if not n.is_read %}table-warning{% endif %}">
                     <td class="align-middle">{{ n.title }}</td>
-                    <td class="align-middle">{{ n.event.title|default:"—" }}</td>
+                    <td class="align-middle">
+                      {% if n.event %}
+                        {{ n.event.title }}
+                      {% else %}
+                        &mdash;
+                      {% endif %}
+                    </td>
                     <td class="align-middle">
                     {% if n.to_all_event_attendees %}
                         <span class="badge bg-info text-dark">Todos</span>
@@ -121,7 +139,7 @@
                     <td class="text-end align-middle">
                     <form method="post" action="{% url 'notifications_read' n.pk %}" style="display:inline;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-success" title="Marcar como leída">✔</button>
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Marcar como leída" aria-label="Marcar como leída">✔</button>
                     </form>
                     <a href="{% url 'notifications_detail' n.pk %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">👁️</a>
                     </td>
@@ -150,6 +168,6 @@
       });
     });
   });
-</script>
+  </script>
 </div>
 {% endblock %}
