@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-11">
+      <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-dark text-white rounded-top-4">
+          <h4 class="mb-0">Editar Ticket de {{ ticket.user.username }}</h4>
+        </div>
+        <div class="card-body text-dark px-5 py-4">
+
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            <ul class="mb-0">
+              {% for field in form %}
+                {% for error in field.errors %}
+                  <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                {% endfor %}
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="event_id" value="{{ event.id }}">
+
+            <div class="mb-4">
+              <label class="form-label fw-bold text-dark" for="id_quantity">
+                Cantidad de entradas
+              </label>
+              <input 
+                type="number" 
+                name="{{ form.quantity.name }}" 
+                value="{{ form.quantity.value }}" 
+                class="form-control rounded-3 shadow-sm border-secondary" 
+                id="id_quantity"
+                min="1"
+                data-max="{{ entradas_disponibles }}"
+              >
+              <small class="form-text text-muted">Disponibles: {{ entradas_disponibles }}</small>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label fw-bold text-dark" for="id_type">
+                Tipo de entrada
+              </label>
+              <select 
+                name="{{ form.type.name }}" 
+                class="form-select rounded-3 shadow-sm border-secondary" 
+                id="id_type"
+              >
+                {% for value, label in form.type.field.choices %}
+                  <option value="{{ value }}" {% if form.type.value == value %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 fw-semibold shadow-sm"
+              style="transition: background-color 0.3s ease;">
+              Guardar cambios
+            </button>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

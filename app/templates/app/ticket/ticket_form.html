@@ -12,78 +12,96 @@
         <div class="card-body ticket">
 
           <h4>{{ event.title }}</h4>
-          <p><i class="bi bi-calendar-event"></i> {{ event.scheduled_at|date:"l, j \\d\\e F \\d\\e Y, H:i" }}</p>
+          <p><i class="bi bi-calendar-event"></i>
+             {{ event.scheduled_at|date:"l, j \\d\\e F \\d\\e Y, H:i" }}</p>
           <p><i class="bi bi-geo-alt"></i> {{ event.venue.name }}</p>
           <p><i class="bi bi-person"></i> {{ event.organizer.username }}</p>
 
-          {% if event.remaining_capacity == 0 %}
-          <div class="alert alert-danger text-center">
-            <strong>Entradas agotadas</strong><br>
-            No hay más disponibilidad para este evento.
-          </div>
+          {% if sold_out %}
+            <div class="alert alert-danger mensaje-cupo-agotado text-center">
+              Cupo agotado
+            </div>
           {% else %}
-          {% if form.errors %}
-          <div class="alert alert-danger">
-            <ul>
-              {% for field in form %}
-                {% for error in field.errors %}
-                  <li><strong>{{ field.label }}:</strong> {{ error }}</li>
-                {% endfor %}
-              {% endfor %}
-            </ul>
-          </div>
-          {% endif %}
 
-          <form method="post" onsubmit="return validarPago()">
-            {% csrf_token %}
-            <input type="hidden" id="remaining_capacity" value="{{ event.remaining_capacity }}">
-
-            <div class="mb-3">
-              <label class="form-label">Cantidad de entradas</label>
-              <div id="alerta_entradas" class="alert alert-warning mt-2 d-none" role="alert"></div>
-              <div class="input-group">
-                <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity(-1)">-</button>
-                {{ form.quantity }}
-                <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity(1)">+</button>
+            {# Aquí mostramos errores de modelo o mensajes #}
+            {% if messages %}
+              <div class="alert alert-danger">
+                <ul>
+                  {% for message in messages %}
+                    <li class="text-danger fw-bold">{{ message }}</li>
+                  {% endfor %}
+                </ul>
               </div>
-              <div class="form-text">Disponibles: {{ event.remaining_capacity }} entradas</div>
-            </div>
+            {% endif %}
 
-            <div class="mb-3">
-              <label class="form-label">Tipo de entrada</label>
-              {{ form.type }}
-            </div>
+            <form method="post" onsubmit="return validarPago()" novalidate>
+              {% csrf_token %}
+              <input type="hidden" id="remaining_capacity" value="{{ entradas_disponibles }}">
 
-            <h4 class="mt-4">Método de pago</h4>
-            <div class="mb-2">
-              <label class="form-label">Número de tarjeta</label>
-              <input type="text" id="card_number" class="form-control" placeholder="1234 5678 9012 3456">
-            </div>
 
-            <div class="row mb-2">
-              <div class="col-md-6">
-                <label class="form-label">Fecha de expiración</label>
-                <input type="text" id="card_expiry" class="form-control" placeholder="MM/AA">
+              <div class="mb-3">
+                <label class="form-label">Cantidad de entradas</label>
+                <div id="cartel_maximo_comprable" class="text-muted small mb-1">
+                  Podés comprar hasta 4 entradas
+                </div>
+                <div id="alerta_entradas"
+                     class="alert alert-warning mt-2 d-none"
+                     role="alert"></div>
+                <div class="input-group">
+                  <button type="button" class="btn btn-outline-secondary" onclick="adjustQuantity(-1)">−</button>
+                  {{ form.quantity }}
+                  <button type="button" class="btn btn-outline-secondary" onclick="adjustQuantity(1)">+</button>
+                </div>
+              </div>  
+
+              <div class="mb-3">
+                <label class="form-label">Tipo de entrada</label>
+                {{ form.type }}
               </div>
-              <div class="col-md-6">
-                <label class="form-label">CVV</label>
-                <input type="text" id="card_cvv" class="form-control" placeholder="123">
-              </div>
-            </div>
 
-            <div class="mb-3">
-              <label class="form-label">Nombre en la tarjeta</label>
-              <input type="text" id="card_name" class="form-control" placeholder="Juan Pérez">
-            </div>
-            <div class="form-check mt-3">
-              <input class="form-check-input" type="checkbox" id="accept_terms">
-              <label class="form-check-label" for="accept_terms">
-                Acepto los <a href="{% url 'terms_and_conditions' %}?next={% url 'ticket_create' event.id %}">términos y condiciones</a>
-                y la <a href="{% url 'privacy_policy' %}?next={% url 'ticket_create' event.id %}">política de privacidad</a>.
-              </label>                                       
-            </div>            
-            <button type="submit" class="btn btn-success w-100 mt-3">Confirmar compra</button>
-          </form>
+              <h4 class="mt-4">Método de pago</h4>
+              <div class="mb-2">
+                <label class="form-label">Número de tarjeta</label>
+                <input type="text" id="card_number" class="form-control"
+                       placeholder="1234 5678 9012 3456">
+              </div>
+
+              <div class="row mb-2">
+                <div class="col-md-6">
+                  <label class="form-label">Fecha de expiración</label>
+                  <input type="text" id="card_expiry" class="form-control"
+                         placeholder="MM/AA">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">CVV</label>
+                  <input type="text" id="card_cvv" class="form-control"
+                         placeholder="123">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Nombre en la tarjeta</label>
+                <input type="text" id="card_name" class="form-control"
+                       placeholder="Juan Pérez">
+              </div>
+
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox"
+                       id="accept_terms">
+                <label class="form-check-label" for="accept_terms">
+                  Acepto los <a href="{% url 'terms_and_conditions' %}?next={% url 'ticket_create' event.id %}">
+                  términos y condiciones</a> y la
+                  <a href="{% url 'privacy_policy' %}?next={% url 'ticket_create' event.id %}">
+                  política de privacidad</a>.
+                </label>
+              </div>
+
+              <button type="submit"
+                      class="btn btn-success w-100 mt-3">
+                Confirmar compra
+              </button>
+            </form>
+
           {% endif %}
         </div>
       </div>
@@ -91,9 +109,7 @@
 
     <div class="col-lg-4">
       <div class="card mb-3">
-        <div class="card-header">
-          <strong>Resumen de compra</strong>
-        </div>
+        <div class="card-header"><strong>Resumen de compra</strong></div>
         <div class="card-body">
           <p>Precio por entrada: $<span id="precio_unitario">50</span></p>
           <p>Cantidad: <span id="resumen_cantidad">1</span></p>
@@ -105,27 +121,18 @@
       </div>
 
       <div class="card ticket">
-        <div class="card-header">
-          <strong>Información importante</strong>
-        </div>
+        <div class="card-header"><strong>Información importante</strong></div>
         <div class="card-body small">
           <ul class="mb-0">
             <li>Las entradas son personales e intransferibles.</li>
-            <li>Maximo 4 entradas por evento.</li>
+            <li>Máximo 4 entradas por evento.</li>
             <li>
               {% if entradas_existentes > 0 %}
-                Ya has comprado {{ entradas_existentes }} para este evento.
+                Ya has comprado {{ entradas_existentes }} entradas.
               {% else %}
                 Aún no has comprado entradas para este evento.
               {% endif %}
             </li>
-            
-            {% if messages %}
-              {% for message in messages %}
-                <li class="text-danger fw-bold">{{ message }}</li>
-              {% endfor %}
-            {% endif %}
-
             <li>Puedes solicitar un reembolso hasta 48 horas antes del evento.</li>
             <li>Recibirás tu entrada en tu correo electrónico.</li>
             <li>Presenta tu entrada digital o impresa el día del evento.</li>
@@ -133,6 +140,7 @@
         </div>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock %}

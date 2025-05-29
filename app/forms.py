@@ -147,24 +147,36 @@ class RefundRequestForm(forms.ModelForm):
 class TicketForm(forms.ModelForm):
     class Meta:
         model = Ticket
-        fields = ['quantity', 'type'] 
+        fields = ['quantity', 'type']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # INPUT de cantidad
         self.fields['quantity'].widget.attrs.update({
             'class': 'form-control text-center',
             'min': '1',
             'id': 'id_quantity',
-            'inputmode': 'numeric'
+            'inputmode': 'numeric',
+            # 'max' y 'data-max' los ponemos dinámicos en la vista
         })
-
         self.fields['quantity'].initial = 1
-        self.fields['type'].initial = 'GENERAL'
-        self.fields['type'].widget.attrs.update({
-            'class': 'form-select'
-        })
 
+        # SELECT de tipo
+        self.fields['type'].widget.attrs.update({
+            'class': 'form-select',
+            'id': 'id_type',           
+        })
+        self.fields['type'].initial = 'GENERAL'
+
+class TicketOrganizerEditForm(forms.ModelForm):
+    class Meta:
+        model = Ticket
+        fields = ['type', 'quantity']
+        widgets = {
+            'type': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+        }
 # --- Formulario de Notificaciones ---
 class NotificationForm(forms.ModelForm):
     TARGET_CHOICES = [

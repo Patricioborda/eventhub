@@ -68,8 +68,8 @@ class Event(models.Model):
         """
         Entradas que todavía pueden venderse para este evento.
         """
-        vendidos = sum(t.quantity for t in self.tickets.all()) 
-        return max(0, self.venue.capacity - vendidos) 
+        vendidos = sum(t.quantity for t in self.tickets.all())   # type: ignore
+        return max(0, self.venue.capacity - vendidos)  # type: ignore
 
     @classmethod
     def validate(cls, title, description, venue, scheduled_at, categories):
@@ -233,11 +233,24 @@ class Ticket(models.Model):
     
     def clean(self):
         super().clean()
-        # Si aún no tiene event (ej. commit=False) saltamos validación de cupo
-        if not self.event_id or not self.quantity:
+        # Si aún no está definido event o cantidad, salimos
+        if not self.event_id or not self.quantity: # type: ignore
             return
-        if self.quantity > self.event.remaining_capacity:   # ← sin ()
+
+        # 1) Validar cupo total del evento
+        if self.quantity > self.event.remaining_capacity:
             raise ValidationError("No hay suficiente capacidad para este evento.")
+
+        # 2) Validar límite de 4 entradas por usuario
+        qs = Ticket.objects.filter(user=self.user, event=self.event)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        usados = qs.aggregate(total=models.Sum("quantity"))["total"] or 0
+        disponibles = 4 - usados
+
+        if self.quantity > disponibles:
+            # Mensaje exacto que tu test espera
+            raise ValidationError("No puedes comprar más de 4 entradas por evento")
 
     
     def __str__(self) -> str:

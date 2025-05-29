@@ -14,18 +14,19 @@
                 <ul class="list-group list-group-flush">
                     {% for ticket in tickets %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>{{ ticket.user.username }}</strong> compró un ticket de tipo 
-                                <strong>{{ ticket.get_type_display }}</strong><br>
-                                <small class="text-muted">Fecha de compra: {{ ticket.buy_date }}</small>
-                            </div>
-                            <span>
-                                {% if is_organizer %}
-                                  <a href="{% url 'ticket_delete_organizer' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
-                                {% else %}
-                                  <a href="{% url 'ticket_delete' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
-                                {% endif %}
-                              </span>
+                        <div>
+                            <strong>{{ ticket.user.username }}</strong> compró un ticket de tipo 
+                            <strong>{{ ticket.get_type_display }}</strong><br>
+                            <small class="text-muted">Fecha de compra: {{ ticket.buy_date }}</small>
+                        </div>
+                        <span>
+                            {% if is_organizer %}
+                            <a href="{% url 'ticket_organizer_edit' ticket.pk %}" class="btn btn-sm btn-outline-primary me-2">Editar</a>
+                            <a href="{% url 'ticket_delete_organizer' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            {% else %}
+                            <a href="{% url 'ticket_delete' ticket.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            {% endif %}
+                        </span>
                         </li>
                     {% endfor %}
                 </ul>

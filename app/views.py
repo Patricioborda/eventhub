@@ -2,12 +2,13 @@ import datetime
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.forms import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.db.models import Count
 from django.views import generic, View
 from django.urls import reverse, reverse_lazy
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -29,6 +30,7 @@ from .forms import (
     RatingForm,
     RefundRequestForm,
     TicketForm,
+    TicketOrganizerEditForm,
     VenueForm,
     SatisfactionSurveyForm,
 )
@@ -197,6 +199,8 @@ def event_detail(request, id):
         event=event, is_deleted=False
     ).order_by("-created_at")
 
+    entradas_disponibles_usuario = disponibles if user and not user_is_organizer else 0
+
    # ---------- Renderizar ----------
     return render(request, "app/event_detail.html", {
         "event":            event,
@@ -209,6 +213,7 @@ def event_detail(request, id):
         "comments":         comments,
         "user_is_organizer": user_is_organizer,
         "user_has_max_tickets": user_has_max_tickets,
+        "entradas_disponibles_usuario": entradas_disponibles_usuario,
     })
 
 @login_required
@@ -566,30 +571,27 @@ def edit_refund_request(request, id):
 
 
 # ------------------- Tickets -------------------
+
 @login_required
 def ticket_list(request):
     tickets = Ticket.objects.filter(user=request.user)
     return render(request, 'app/ticket/ticket_list.html', {'tickets': tickets})
 
+
 @login_required
 def ticket_list_organizer(request):
     events = Event.objects.filter(organizer=request.user)
-    tickets = Ticket.objects.filter(event__in=events).select_related('event', 'user')
+    tickets = Ticket.objects.filter(event__in=events).select_related('event', 'user').order_by('event__scheduled_at')
 
-    # Agrupar tickets por evento
     grouped = defaultdict(list)
     for ticket in tickets:
         grouped[ticket.event].append(ticket)
 
-    # Convertir a lista de tuplas para usar en el template
-    grouped_tickets = list(grouped.items())
-
-    # Agregar la variable `is_organizer` al contexto
-    is_organizer = request.path.startswith('/organizer')
+    grouped_tickets = sorted(grouped.items(), key=lambda e: e[0].scheduled_at)
 
     return render(request, 'app/ticket/ticket_list_organizer.html', {
         'grouped_tickets': grouped_tickets,
-        'is_organizer': is_organizer,  # Pasa la variable `is_organizer`
+        'is_organizer': request.path.startswith('/organizer'),
     })
 
 
@@ -597,126 +599,114 @@ def ticket_list_organizer(request):
 def ticket_create(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
     cupo_restante = event.remaining_capacity
+    disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+    compradas = 4 - disponibles
 
-    # ── 1) SIN CUPOS ──────────────────────────────────────────────
-    if cupo_restante == 0:
-        if request.method == "GET":
-            messages.error(request, "Cupo agotado")
-            return render(request, "app/ticket/ticket_form.html", {
-                "form": TicketForm(),
-                "event": event,
-                "sold_out": True,
-            })
-        return HttpResponseBadRequest('Cupo agotado')
+    # 🔸 Paso 1: Mostrar mensaje BACKEND si ya no puede comprar más
+    if disponibles == 0:
+        messages.error(request, "No puedes comprar más de 4 entradas por evento")
 
-    # ── 2) HAY CUPOS ─────────────────────────────────────────────
+    form = TicketForm(request.POST or None)
+
     if request.method == "POST":
-        form = TicketForm(request.POST)
-        if form.is_valid():
+        # 🛑 Paso 2: Validar capacidad global antes de seguir
+        if cupo_restante == 0:
+            messages.error(request, "Lo sentimos, no hay más entradas disponibles para este evento.")
+        elif disponibles == 0:
+            # No hace falta agregar otro mensaje, ya está más arriba
+            pass
+        elif form.is_valid():
             ticket = form.save(commit=False)
             ticket.event = event
             ticket.user = request.user
-
-            # Validación 1: cantidad supera cupo restante
-            if ticket.quantity > cupo_restante:
-                form.add_error("quantity", "Cupo insuficiente para la cantidad seleccionada.")
-                messages.warning(request, "Cupo insuficiente para la cantidad seleccionada.")
+            try:
+                ticket.save()  # aquí corre clean() del modelo
+            except ValidationError as e:
+                for msg in e.messages:
+                    messages.error(request, msg)
             else:
-                # Validación 2: supera el límite por usuario
-                disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
-                existentes = 4 - disponibles
-
-                if ticket.quantity > disponibles:
-                    messages.error(
-                        request,
-                        f"No puedes comprar más de 4 entradas por evento. Ya compraste {existentes}."
-                    )
-                    return render(request, 'app/ticket/ticket_form.html', {
-                        'form': form,
-                        'event': event,
-                        'entradas_existentes': existentes,
-                        'entradas_disponibles': disponibles,
-                    })
-
-                ticket.save()
                 request.session['last_ticket_id'] = ticket.id
                 return redirect('survey_create', ticket_id=ticket.id)
-    else:
-        form = TicketForm()
-        disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
-        existentes = 4 - disponibles
-        form.fields['quantity'].widget.attrs['data-max'] = disponibles
+
+    # Siempre llegamos acá: GET, cupo agotado, límite por usuario o error de form
+    data_max = min(disponibles, cupo_restante)
+    html_max = str(data_max if data_max > 0 else 0)
+
+    form.fields['quantity'].widget.attrs.update({
+        'max': html_max,
+        'data-max': str(data_max),
+    })
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
         'event': event,
-        'entradas_existentes': existentes,
+        'entradas_existentes': compradas,
         'entradas_disponibles': disponibles,
-        'sold_out': False,
+        'sold_out': (cupo_restante == 0),
     })
 
+
 @login_required
-def ticket_update(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk)
+def ticket_organizer_edit(request, ticket_id):
+    ticket = get_object_or_404(Ticket, pk=ticket_id)
     event = ticket.event
 
-    if request.method == 'POST':
-        form = TicketForm(request.POST, instance=ticket)
-        if form.is_valid():
-            entradas_actuales = Ticket.objects.filter(
-                user=request.user,
-                event=event
-            ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+    if event.organizer != request.user:
+        return HttpResponseForbidden("No tenés permiso para editar este ticket.")
 
+    cupo_restante = event.remaining_capacity
+
+    # Siempre calculamos entradas actuales
+    entradas_actuales = Ticket.objects.filter(
+        user=ticket.user,
+        event=event
+    ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+    disponibles = 4 - entradas_actuales
+    data_max = min(disponibles, cupo_restante)
+
+    if request.method == 'POST':
+        form = TicketOrganizerEditForm(request.POST, instance=ticket)
+        if form.is_valid():
             nuevas = form.cleaned_data['quantity']
             total = entradas_actuales + nuevas
 
-            if total > 4:
-                disponibles = 4 - entradas_actuales
+            if nuevas > cupo_restante:
                 messages.error(
                     request,
-                    f"No puedes tener más de 4 entradas por evento. Ya compraste {entradas_actuales}, puedes modificar hasta {disponibles} entradas."
+                    f"No hay cupo suficiente para modificar a {nuevas} entradas. Quedan solo {cupo_restante}."
                 )
-                return render(request, 'app/ticket/ticket_form.html', {
-                    'form': form,
-                    'event': event,
-                    'entradas_existentes': entradas_actuales,
-                    'entradas_disponibles': disponibles,
-                })
-
-            form.save()
-            return redirect('ticket_list')
+            elif total > 4:
+                messages.error(
+                    request,
+                    f"El usuario ya tiene {entradas_actuales} entradas. Solo podés modificar hasta {disponibles}."
+                )
+            else:
+                form.save()
+                messages.success(request, "Ticket actualizado correctamente.")
+                return redirect('ticket_list_organizer')
     else:
-        form = TicketForm(instance=ticket)
+        form = TicketOrganizerEditForm(instance=ticket)
 
-        entradas_actuales = Ticket.objects.filter(
-            user=request.user,
-            event=ticket.event
-        ).exclude(pk=ticket.pk).aggregate(total=models.Sum('quantity'))['total'] or 0
+    # Aseguramos que siempre se setea data-max
+    form.fields['quantity'].widget.attrs['data-max'] = data_max
 
-        disponibles = 4 - entradas_actuales
-        form.fields['quantity'].widget.attrs['data-max'] = disponibles
-
-    return render(request, 'app/ticket/ticket_form.html', {
+    return render(request, 'app/ticket/ticket_edit_organizer.html', {
         'form': form,
-        'event': ticket.event,
+        'event': event,
+        'ticket': ticket,
         'entradas_existentes': entradas_actuales,
-        'entradas_disponibles': disponibles,
+        'entradas_disponibles': disponibles
     })
-
 
 @login_required
 def ticket_delete(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
-
-    # Verifica si el usuario es organizador o un usuario normal
     if request.method == 'POST':
         ticket.delete()
-
-        # Redirige según el contexto
+        messages.success(request, "Entrada eliminada correctamente.")
         if '/organizer/ticket' in request.path:
-            return redirect('ticket_list_organizer')  # Lista de tickets del organizador
-        return redirect('ticket_list')  # Lista de tickets del usuario normal
+            return redirect('ticket_list_organizer')
+        return redirect('ticket_list')
 
     return render(request, 'app/ticket/ticket_confirm_delete.html', {'ticket': ticket})
 # ------------------- Categorías -------------------
@@ -1000,7 +990,7 @@ def survey_create(request, ticket_id):
 
     # Permitir acceso solo si el ticket_id está en la sesión
     last_ticket_id = request.session.get('last_ticket_id')
-    if last_ticket_id != ticket.id:
+    if last_ticket_id != ticket.id: # type: ignore
         messages.error(request, 'No tienes permiso para acceder a esta encuesta.')
         return redirect('ticket_list')
 
@@ -1022,7 +1012,7 @@ def survey_create(request, ticket_id):
                 'error': 'Ya has realizado una encuesta para este ticket'
             }, status=400)
         messages.info(request, 'Ya has realizado una encuesta para este ticket')
-        return redirect('event_detail', id=ticket.event.id)
+        return redirect('event_detail', id=ticket.event.id) # type: ignore
 
     if request.method == 'POST':
         form = SatisfactionSurveyForm(

@@ -1,151 +1,155 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block content %}
 <div class="containerComentario">
 
-  <!-- Detalles del Evento -->
+  <!-- ----- Detalle / título & botón Editar ----- -->
   <div class="row mb-4">
     <div class="d-flex justify-content-between align-items-center">
       <h1>{{ event.title }}</h1>
+
       {% if user_is_organizer %}
-        <a href="{% url 'event_edit' event.id %}" class="btn btn-outline-primary me-2">
-          <i class="bi bi-pencil me-1"></i>Editar
+        <a href="{% url 'event_edit' event.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-pencil me-1"></i> Editar
         </a>
       {% endif %}
     </div>
-    </div>
-        <div class="row mb-4">
-            <div class="card">
-            <div class="card-body">
-                <!-- Estructura flexible para alinear el título y el botón -->
-                <div class="d-flex justify-content-between align-items-center">
-                <h5 class="card-title text-dark mb-2">Detalles del Evento</h5>
-                <!-- Botón a la derecha -->
-                {% if user.is_authenticated and not user.is_organizer %}
-                    {% if user_has_max_tickets %}
-                        <!-- Mensaje mejorado con mejor estilo -->
-                        <div class="alert alert-warning limit-reached mb-0 py-2 px-3 d-flex align-items-center">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            <span>No puedes comprar entradas para este evento porque superaste el límite por usuario</span>
-                        </div>
-                    {% else %}
-                        <!-- Botón de comprar normal -->
-                        <a href="{% url 'ticket_create' event.id %}" class="btn btn-eventhub">
-                            <i class="bi bi-ticket-perforated me-1"></i>
-                            Comprar Ticket
-                        </a>
-                    {% endif %}
-                {% endif %}
-                </div>
-                </div>
-                <!-- Información del evento -->
-                <div class="mt-4">
-                    <!-- Fecha -->
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-calendar-event text-primary"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Fecha y Hora</h6>
-                            <p class="mb-0">{{ event.scheduled_at|date:"l, j \\d\\e F \\d\\e Y, H:i" }}</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Cuenta regresiva -->
-                    {% if not user_is_organizer %}
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-light rounded-circle p-2 me-3">
-                                <i class="bi bi-hourglass-split text-primary"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0">Cuenta Regresiva</h6>
-                                <p class="mb-0">
-                                    <span id="countdown" data-seconds="{{ countdown_seconds|default:0 }}">
-                                        Cargando...
-                                    </span>
-                                </p>
-                            </div>
-                        </div>
-                    {% endif %}
-
-
-
-
-                    {% if event.venue %}
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-geo-alt text-primary"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Ubicación</h6>
-                            <p class="mb-0">{{ event.venue.name }} - {{ event.venue.city }}</p>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-geo-alt text-danger"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Ubicación</h6>
-                            <p class="mb-0 text-muted">No asignada</p>
-                        </div>
-                    </div>
-                    {% endif %}
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-person text-primary"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Organizador</h6>
-                            <p class="mb-0">{{ event.organizer }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Categoría -->
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-light rounded-circle p-2 me-3">
-                            <i class="bi bi-tags text-primary"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0">Categoría</h6>
-                            <p class="mb-0">
-                                {% if event.categories.all %}
-                                    {% for category in event.categories.all %}
-                                        <span class="badge bg-light text-dark">{{ category.name }}</span>
-                                    {% endfor %}
-                                {% else %}
-                                    Sin categoría
-                                {% endif %}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Calificaciones -->
-                    {% include 'app/ratings.html' %}
-
-                </div>
-                <!-- Comentarios -->
-                <h3 class="mt-4">Agregar comentario</h3>
-                {% include 'comments/comment_form.html' %}
-                <div class="card mt-5">
-                    <div class="card-header">
-                    Comentarios ({{ comments.count }})
-                    </div>
-                    <div class="card-body">
-                    {% include 'comments/comment_list.html' %}
-                    </div>
-                </div>    
-        </div>
-      </div>
-    </div>
   </div>
-  
 
+  <!-- ----- Tarjeta de detalles ----- -->
+  <div class="row mb-4">
+    <div class="card">
+      <div class="card-body">
+
+        <!-- encabezado de la tarjeta -->
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="card-title text-dark mb-2">Detalles del Evento</h5>
+          {% if user.is_authenticated and not user.is_organizer %}
+
+            {% if event.remaining_capacity == 0 %}
+              <div class="alert alert-warning mb-0 py-2 px-3 d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span>Lo sentimos, el evento está con cupo agotado</span>
+              </div>
+
+            {% elif entradas_disponibles_usuario == 0 %}
+              <div class="alert alert-warning mb-0 py-2 px-3 d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span>No puedes comprar entradas para este evento porque
+                      alcanzaste el límite por usuario</span>
+              </div>
+
+            {% else %}
+              <a href="{% url 'ticket_create' event.id %}"
+                 class="btn btn-eventhub">
+                <i class="bi bi-ticket-perforated me-1"></i>
+                Comprar Ticket
+              </a>
+            {% endif %}
+
+          {% endif %}
+        </div>  <!-- /encabezado -->
+
+        <div class="mt-4">
+          <!-- Fecha -->
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-calendar-event text-primary"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Fecha y Hora</h6>
+              <p class="mb-0">{{ event.scheduled_at|date:"l, j \\d\\e F \\d\\e Y, H:i" }}</p>
+            </div>
+          </div>
+
+          {% if not user_is_organizer %}
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-hourglass-split text-primary"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Cuenta Regresiva</h6>
+              <p class="mb-0">
+                <span id="countdown" data-seconds="{{ countdown_seconds|default:0 }}">
+                  Cargando…
+                </span>
+              </p>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- resto tal cual… -->
+          {% if event.venue %}
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-geo-alt text-primary"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Ubicación</h6>
+              <p class="mb-0">{{ event.venue.name }} – {{ event.venue.city }}</p>
+            </div>
+          </div>
+          {% else %}
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-geo-alt text-danger"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Ubicación</h6>
+              <p class="mb-0 text-muted">No asignada</p>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Organizador -->
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-person text-primary"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Organizador</h6>
+              <p class="mb-0">{{ event.organizer }}</p>
+            </div>
+          </div>
+
+          <!-- Categorías -->
+          <div class="d-flex align-items-center mb-3">
+            <div class="bg-light rounded-circle p-2 me-3">
+              <i class="bi bi-tags text-primary"></i>
+            </div>
+            <div>
+              <h6 class="mb-0">Categoría</h6>
+              <p class="mb-0">
+                {% for category in event.categories.all %}
+                  <span class="badge bg-light text-dark">{{ category.name }}</span>
+                {% empty %}
+                  Sin categoría
+                {% endfor %}
+              </p>
+            </div>
+          </div>
+
+          {% include "app/ratings.html" %}
+        </div>
+
+        <!-- Comentarios -->
+        <h3 class="mt-4">Agregar comentario</h3>
+        {% include "comments/comment_form.html" %}
+
+        <div class="card mt-5">
+          <div class="card-header">Comentarios ({{ comments.count }})</div>
+          <div class="card-body">
+            {% include "comments/comment_list.html" %}
+          </div>
+        </div>
+
+      </div> <!-- /card-body -->
+    </div>   
+  </div>     
 </div>
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'js/events.js' %}"></script>
+  <script src="{% static 'js/events.js' %}"></script>
 {% endblock %}
