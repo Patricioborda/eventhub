@@ -41,10 +41,30 @@
               <div class="form-text">Disponibles: 120 entradas</div>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label">Tipo de entrada</label>
-              {{ form.type }}
-            </div>
+              <div class="mb-3">
+                <label class="form-label">Tipo de entrada</label>
+                {{ form.type }}
+              </div>
+
+<!-- Agregar este campo hidden después del campo discount_code existente -->
+<div class="mb-3">
+  <label for="id_discount_code" class="form-label">Código de descuento</label>
+  <div class="input-group">
+    {{ form.discount_code }}
+    <button
+        class="btn btn-outline-primary"
+        id="apply-discount"
+        type="button"
+        data-event-id="{{ event.id }}"
+      >
+        Aplicar
+      </button>
+  </div>
+  <div class="invalid-feedback d-block" id="discount-error" style="display:none;"></div>
+</div>
+
+<!-- AGREGAR ESTO: Campo hidden para asegurar que el código validado se envíe -->
+<input type="hidden" id="validated-discount-code" name="validated_discount_code" value="">
 
             <h4 class="mt-4">Método de pago</h5>
             <div class="mb-2">
@@ -125,4 +145,6 @@
     </div>
   </div>
 </div>
+
+
 {% endblock %}

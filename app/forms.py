@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue, SatisfactionSurvey
+from .models import DiscountCode, Category, Comment, Event, Notification, Rating, RefundRequest, Ticket, Venue, SatisfactionSurvey
 
 
 class CommentForm(forms.ModelForm):
@@ -145,9 +145,17 @@ class RefundRequestForm(forms.ModelForm):
 
 # --- Formulario de Tickets ---
 class TicketForm(forms.ModelForm):
+    
+    discount_code = forms.CharField(
+        required=False,
+        max_length=50,
+        label="Código de descuento",
+        widget=forms.TextInput(attrs={'placeholder': 'Ingresa código (opcional)'})
+    )
+
     class Meta:
         model = Ticket
-        fields = ['quantity', 'type'] 
+        fields = ['quantity', 'type']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -312,4 +320,168 @@ class SatisfactionSurveyForm(forms.ModelForm):
             # Validar que el ticket pertenezca al evento
             if self.event and self.ticket.event != self.event:
                 raise ValidationError('El ticket debe pertenecer al evento especificado')
+        return cleaned_data
+
+
+class DiscountCodeForm(forms.ModelForm):
+    # Valor interno para “Ninguno”
+    NONE_ID = 'NONE'
+
+    valid_from = forms.DateField(
+        required=True,
+        initial=timezone.now().date(),
+        widget=forms.DateInput(attrs={'type':'date','class':'form-control'})
+    )
+    valid_until = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type':'date','class':'form-control'})
+    )
+
+    # TypedChoiceField convierte cadenas a None o int
+    event = forms.TypedChoiceField(
+        required=False,
+        choices=[],   # se rellenan en __init__
+        coerce=lambda val: None if val == DiscountCodeForm.NONE_ID else int(val),
+        empty_value=None,
+        label='Evento (opcional)',
+        widget=forms.Select(attrs={'class':'form-select'})
+    )
+
+    class Meta:
+        model = DiscountCode
+        fields = [
+            'code', 'description', 'valid_from', 'valid_until',
+            'max_uses', 'discount_type', 'discount_value',
+            # incluye event aquí
+            'event',
+        ]
+        widgets = {
+            'code': forms.TextInput(attrs={'class':'form-control','placeholder':'Ingrese un código'}),
+            'description': forms.TextInput(attrs={'class':'form-control','placeholder':'Descripción (opcional)'}),
+            'max_uses': forms.NumberInput(attrs={'class':'form-control','min':1}),
+            'discount_type': forms.Select(attrs={'class':'form-select'}),
+            'discount_value': forms.NumberInput(attrs={'class':'form-control','step':'0.01','min':'0.01'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Traigo solo los eventos del organizador
+        eventos = Event.objects.filter(organizer=user) if user else Event.objects.none()
+
+        # Construyo choices: primero “Ninguno”, luego los eventos
+        choices = [(self.NONE_ID, 'Ninguno')] + [
+            (str(e.id), e.title) for e in eventos
+        ]
+        self.fields['event'].choices = choices
+
+        # Inicializo en “Ninguno” si es creación
+        if not self.instance.pk:
+            self.initial['event'] = self.NONE_ID
+        else:
+            # Si ya tiene event, pongo su id; si no, queda en NONE
+            self.initial['event'] = (
+                str(self.instance.event.pk)
+                if self.instance.event else
+                self.NONE_ID
+            )
+
+    def clean_valid_until(self):
+        valid_from = self.cleaned_data.get('valid_from')
+        valid_until = self.cleaned_data.get('valid_until')
+        if valid_from and valid_until and valid_until < valid_from:
+            raise ValidationError("'valid_until' debe ser igual o posterior a 'valid_from'.")
+        return valid_until
+
+    def clean_discount_value(self):
+        value = self.cleaned_data.get('discount_value')
+        dtype = self.cleaned_data.get('discount_type')
+        if value is None or value <= 0:
+            raise ValidationError('El valor del descuento debe ser mayor que cero.')
+        if dtype == 'percent' and not (0 < value <= 100):
+            raise ValidationError('El porcentaje debe estar entre 1 y 100.')
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        evt = cleaned.get('event')  # o None (NONE), o int
+
+        if isinstance(evt, int):
+            # convierto id → instancia
+            try:
+                cleaned['event'] = Event.objects.get(pk=evt)
+            except Event.DoesNotExist:
+                raise ValidationError({'event': 'Evento inválido.'})
+        else:
+            # cuando evt es None, dejo None
+            cleaned['event'] = None
+
+        return cleaned
+
+    def save(self, commit=True):
+        inst = super().save(commit=False)
+        # Siempre event=None o instancia; no más apply_to_all
+        inst.event = self.cleaned_data['event']
+        if commit:
+            inst.save()
+        return inst
+
+class DiscountCodeEditForm(forms.ModelForm):
+    class Meta:
+        model = DiscountCode
+        fields = [
+            'description',
+            'valid_from',
+            'valid_until',
+            'max_uses',
+            'discount_type',
+            'discount_value',
+        ]
+        widgets = {
+            'discount_value': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0.01',
+                'placeholder': 'Ej: 20 o 100.00',
+                'required': True,
+                'id': 'discount_value',
+            }),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        valid_from = cleaned_data.get('valid_from')
+        valid_until = cleaned_data.get('valid_until')
+        max_uses = cleaned_data.get('max_uses')
+
+        if valid_from is not None:
+            # Cambié self.valid_from por valid_from
+            if valid_from < timezone.now().date():
+                raise ValidationError({'valid_from': 'La fecha de inicio no puede ser en el pasado.'})
+
+        # Cambié self.valid_until y self.valid_from por valid_until y valid_from
+        if valid_until and valid_from and valid_from > valid_until:
+            raise ValidationError({'valid_until': 'La fecha de finalización debe ser mayor o igual a la fecha de inicio.'})
+
+        if max_uses is not None and max_uses < 1:
+            self.add_error('max_uses', 'El máximo de usos debe ser al menos 1.')
+
+        if max_uses is not None and self.instance and max_uses < self.instance.uses:
+            self.add_error('max_uses', 'El máximo de usos no puede ser menor que las veces usadas actualmente.')
+
+        discount_value = cleaned_data.get('discount_value')
+        discount_type = cleaned_data.get('discount_type')
+
+        if discount_value is None or discount_value <= 0:
+            self.add_error('discount_value', 'El valor del descuento debe ser mayor que cero.')
+
+        if discount_type == 'percent' and (discount_value > 100 or discount_value <= 0):
+            self.add_error('discount_value', 'El porcentaje debe estar entre 1 y 100.')
+
+        description = cleaned_data.get('description')
+        if description and len(description) > 500:
+            self.add_error('description', 'La descripción no puede tener más de 500 caracteres.')
+
         return cleaned_data

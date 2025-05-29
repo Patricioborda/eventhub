@@ -1,15 +1,16 @@
+// Variables globales (solo declaradas una vez)
+var descuentoValor = 0;
+var descuentoTipo = null;
+
 function adjustQuantity(amount) {
   const input = document.getElementById("id_quantity");
   const max = parseInt(input.getAttribute("data-max")) || 4;  // Por defecto, 4
   let value = parseInt(input.value || 0);
 
   if (isNaN(value)) value = 0;
-
   value += amount;
-
   // Limitar entre 1 y max
   value = Math.max(1, Math.min(value, max));
-
   input.value = value;
   actualizarResumen();
 }
@@ -18,167 +19,171 @@ function actualizarResumen() {
   const cantidad = parseInt(document.getElementById("id_quantity").value) || 1;
   const tipo = document.getElementById("id_type").value;
   const precioUnitario = tipo === "VIP" ? 100 : 50;
-  const subtotal = precioUnitario * cantidad;
-  const impuestos = subtotal * 0.10;
-  const total = subtotal + impuestos;
+  const subtotalOriginal = precioUnitario * cantidad;
 
-  document.getElementById("precio_unitario").innerText = precioUnitario;
+  // Aplicar descuento si corresponde
+  let descuento = 0;
+  if (descuentoTipo === 'fixed') {
+    descuento = descuentoValor;
+  } else if (descuentoTipo === 'percent') {
+    descuento = subtotalOriginal * (descuentoValor / 100);
+  }
+
+  let subtotalConDescuento = subtotalOriginal - descuento;
+  if (subtotalConDescuento < 0) subtotalConDescuento = 0;
+
+  const impuestos = subtotalOriginal * 0.10;
+  const total = subtotalConDescuento + impuestos;
+
+  // Logs para depuración
+  console.log("Descuento tipo:", descuentoTipo);
+  console.log("Descuento valor:", descuentoValor);
+  console.log("Subtotal original:", subtotalOriginal);
+  console.log("Subtotal con descuento:", subtotalConDescuento);
+  console.log("Total con impuestos:", total);
+
+  // Actualizar la UI
+  document.getElementById("precio_unitario").innerText = precioUnitario.toFixed(2);
   document.getElementById("resumen_cantidad").innerText = cantidad;
-  document.getElementById("subtotal").innerText = subtotal.toFixed(2);
+  // Aquí mostramos el subtotal ya con descuento
+  document.getElementById("subtotal").innerText = subtotalConDescuento.toFixed(2);
   document.getElementById("impuestos").innerText = impuestos.toFixed(2);
   document.getElementById("total").innerText = total.toFixed(2);
 }
 
 function validarPago() {
   const campos = ['card_number', 'card_expiry', 'card_cvv', 'card_name'];
-  
-  // Validar campos del formulario de pago
   for (const id of campos) {
     const campo = document.getElementById(id);
     if (!campo || !campo.value.trim()) {
-      // Usar SweetAlert para mostrar el mensaje
-      Swal.fire({
-        title: 'Error',
-        text: 'Por favor completa todos los campos del método de pago.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar'
-      });
+      Swal.fire({ title: 'Error', text: 'Por favor completa todos los campos.', icon: 'error', confirmButtonText: 'Aceptar' });
       campo?.focus();
       return false;
     }
   }
-
-  // Verificar aceptación de términos
-  const termsAccepted = document.getElementById('accept_terms').checked;
-  if (!termsAccepted) {
-    Swal.fire({
-      title: 'Error',
-      text: 'Debes aceptar los términos y condiciones antes de continuar.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
-    return false; // Evita que se envíe el formulario
+  if (!document.getElementById('accept_terms').checked) {
+    Swal.fire({ title: 'Error', text: 'Debes aceptar los términos y condiciones.', icon: 'error', confirmButtonText: 'Aceptar' });
+    return false;
   }
-
-   // Validar número de tarjeta
   const tarjeta = document.getElementById('card_number').value.replace(/\s/g, '');
   if (tarjeta.length !== 16) {
-    Swal.fire({
-      title: 'Error',
-      text: 'El número de tarjeta debe tener exactamente 16 dígitos.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
+    Swal.fire({ title: 'Error', text: 'El número de tarjeta debe tener 16 dígitos.', icon: 'error', confirmButtonText: 'Aceptar' });
     return false;
   }
-
-  // Validar formato MM/AA
-  const expiry = document.getElementById('card_expiry').value;
-  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
-    Swal.fire({
-      title: 'Error',
-      text: 'La fecha de expiración debe tener el formato MM/AA.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
+  if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(document.getElementById('card_expiry').value)) {
+    Swal.fire({ title: 'Error', text: 'La fecha de expiración debe ser MM/AA.', icon: 'error', confirmButtonText: 'Aceptar' });
     return false;
   }
-
-  // Validar CVV
-  const cvv = document.getElementById('card_cvv').value;
-  if (!/^\d{3}$/.test(cvv)) {
-    Swal.fire({
-      title: 'Error',
-      text: 'El código de seguridad (CVV) debe tener 3 dígitos numéricos.',
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
+  if (!/^\d{3}$/.test(document.getElementById('card_cvv').value)) {
+    Swal.fire({ title: 'Error', text: 'El CVV debe tener 3 dígitos.', icon: 'error', confirmButtonText: 'Aceptar' });
     return false;
   }
-
-  /*const cantidad = parseInt(document.getElementById("id_quantity").value);
-  const max = parseInt(document.getElementById("id_quantity").dataset.max || 4);
-  if (cantidad > max) {
-    Swal.fire({
-      title: 'Error',
-      text: `Solo puedes comprar ${max} entrada/s para este evento.`,
-      icon: 'error',
-      confirmButtonText: 'Aceptar'
-    });
-    return false;
-  }*/
-
-  return true;  // Si todo está bien, se envía el formulario
+  return true;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  // Bindings iniciales
   document.getElementById("id_quantity").addEventListener("input", actualizarResumen);
   document.getElementById("id_type").addEventListener("change", actualizarResumen);
   actualizarResumen();
 
+  // Hacer quantity readonly
   const quantityInput = document.getElementById("id_quantity");
   if (quantityInput) {
-    // Hacer el campo de solo lectura
     quantityInput.setAttribute("readonly", "true");
-    
-    // Prevenir que se pueda editar manualmente
-    quantityInput.addEventListener("keydown", function(e) {
-      e.preventDefault(); // Bloquear todas las teclas
-    });
-    
-    quantityInput.addEventListener("paste", function(e) {
-      e.preventDefault(); // Bloquear pegar
-    });
+    quantityInput.addEventListener("keydown", e => e.preventDefault());
+    quantityInput.addEventListener("paste", e => e.preventDefault());
   }
 
+  // Validación de formulario
   const form = document.querySelector("form");
   if (form) {
-    form.addEventListener("submit", (e) => {
-      if (!validarPago()) {
-        e.preventDefault();  // Evita que el formulario se envíe si hay error
-      }
+    form.addEventListener("submit", e => {
+      if (!validarPago()) e.preventDefault();
     });
   }
 
+  // Formateos de inputs de tarjeta
   formatearNumerosTarjeta(document.getElementById("card_number"));
   formatearFechaExp(document.getElementById("card_expiry"));
   validarCVV(document.getElementById("card_cvv"));
   validarNombre(document.getElementById("card_name"));
+
+  // Botón de aplicar descuento
+  const applyBtn = document.getElementById('apply-discount');
+  applyBtn.addEventListener('click', async () => {
+    const codigo = document.getElementById('id_discount_code').value.trim();
+    const eventId = applyBtn.dataset.eventId;
+    const errorDiv = document.getElementById('discount-error');
+
+    if (!codigo) {
+      errorDiv.style.display = 'block';
+      errorDiv.classList.add('text-danger');
+      errorDiv.textContent = 'No se introdujo un cupón';
+      return;
+    }
+    errorDiv.style.display = 'none';
+
+    try {
+      const res = await fetch(`/ajax/validar-cupon/?codigo=${encodeURIComponent(codigo)}&event_id=${eventId}`);
+      const data = await res.json();
+
+      if (data.status === 'ok') {
+        errorDiv.style.display = 'block';
+        errorDiv.classList.replace('text-danger','text-success');
+        errorDiv.textContent = data.message;
+        descuentoValor = data.discount_value;
+        descuentoTipo = data.discount_type;   // 'fixed' o 'percent'
+         document.getElementById('validated-discount-code').value = codigo;
+      } else {
+        errorDiv.style.display = 'block';
+        errorDiv.classList.replace('text-success','text-danger');
+        errorDiv.textContent = data.message;
+        descuentoValor = 0;
+        descuentoTipo = null;
+
+        document.getElementById('validated-discount-code').value = '';
+      }
+      actualizarResumen();
+    } catch {
+      errorDiv.style.display = 'block';
+      errorDiv.classList.replace('text-success','text-danger');
+      errorDiv.textContent = 'Error al validar el cupón';
+      descuentoValor = 0;
+      descuentoTipo = null;
+      actualizarResumen();
+    }
+  });
 });
 
-function formatearNumerosTarjeta (input){
+// Funciones auxiliares para formateo
+function formatearNumerosTarjeta(input) {
+  if (!input) return;
   input.addEventListener("input", () => {
-    let numeros = input.value.replace(/\D/g, "").substring(0, 16);
-    numeros = numeros.replace(/(.{4})/g, "$1 ").trim();
-    input.value = numeros;
-  })
+    let v = input.value.replace(/\D/g, "").substring(0,16);
+    input.value = v.replace(/(.{4})/g,"$1 ").trim();
+  });
 }
 
-function formatearFechaExp (input) {
+function formatearFechaExp(input) {
+  if (!input) return;
   input.addEventListener("input", () => {
-
-    let fecha = input.value.replace (/\D/g, "").substring (0,4);
-    
-    if (fecha.length >= 3){
-      fecha = fecha.replace(/^(\d{2})(\d{1,2})/, "$1/$2");
-    }
-
-    input.value = fecha;
-  })
+    let v = input.value.replace(/\D/g,"").substring(0,4);
+    if (v.length >= 3) v = v.replace(/^(\d{2})(\d{1,2})/,"$1/$2");
+    input.value = v;
+  });
 }
 
-function validarCVV (input){
-  input.addEventListener("input", () =>{
-
-    let cvv = input.value.replace (/\D/g, "").substring (0,3);
-    input.value = cvv;
-
-  })
+function validarCVV(input) {
+  if (!input) return;
+  input.addEventListener("input", () => {
+    input.value = input.value.replace(/\D/g,"").substring(0,3);
+  });
 }
 
-function validarNombre (input){
+function validarNombre(input) {
+  if (!input) return;
   input.addEventListener("input", () => {
-    let nombre = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
-    input.value = nombre;
-  })
+    input.value = input.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g,"");
+  });
 }

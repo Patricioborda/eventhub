@@ -58,5 +58,10 @@ urlpatterns = [
     path("refunds/<int:id>/reject/", views.reject_refund_request, name="reject_refund_request"),
     path("favorites/", views.favorites_list, name="favorites_list"),
     path('favorites/toggle/<int:event_id>/', views.toggle_favorite, name='toggle_favorite'),
+    path('discount', views.discount_list, name='discount_list'),
+    path('discount/new/', views.discount_create, name='discount_create'),
+    path('discount/<int:pk>/edit/', views.discount_edit, name='discount_edit'),
+    path('discount/<int:pk>/delete/', views.discount_delete, name='discount_delete'),
+    path('discount/<int:pk>/', views.discount_detail, name='discount_detail'),
+    path('ajax/validar-cupon/', views.validar_cupon, name='validar_cupon'),]
 
-]

@@ -16,8 +16,11 @@ from django.db import transaction
 from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
+from django.utils.timezone import now
+from django.db.models import F, Sum  # Agrega esta línea al inicio del archivo
 
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
+
 from datetime import datetime
 from django.db import models
 
@@ -31,6 +34,8 @@ from .forms import (
     TicketForm,
     VenueForm,
     SatisfactionSurveyForm,
+    DiscountCodeForm,
+    DiscountCodeEditForm,
 )
 from .models import (
     Category,
@@ -44,6 +49,7 @@ from .models import (
     User,
     Venue,
     SatisfactionSurvey,
+    DiscountCode,
 )
 from .utils import format_datetime_es
 from .models import Rating
@@ -613,22 +619,72 @@ def ticket_list_organizer(request):
         'grouped_tickets': grouped_tickets,
         'is_organizer': is_organizer,  # Pasa la variable `is_organizer`
     })
+@require_GET
+def validar_cupon(request):
+    codigo = request.GET.get('codigo', '').strip()
+    event_id = request.GET.get('event_id')
+    
+    if not codigo:
+        return JsonResponse({'status': 'no_code', 'message': 'No se introdujo un cupón'})
+
+    # Validar evento si se pasó un ID
+    event = None
+    if event_id:
+        try:
+            event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Evento no encontrado'})
+    
+    try:
+        cupon = DiscountCode.objects.get(code__iexact=codigo)
+
+        if not cupon.is_valid():
+            return JsonResponse({
+                'status': 'invalid',
+                'message': 'El cupón ha expirado o ya no tiene usos disponibles'
+            })
+
+        if event and not cupon.applies_to_event(event):
+            return JsonResponse({
+                'status': 'invalid_event',
+                'message': 'El cupón no existe.'
+            })
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Se aplicó un descuento',
+            'discount_value': float(cupon.discount_value),
+            'discount_type': cupon.discount_type,
+            'descripcion': cupon.description or '',
+        })
+
+    except DiscountCode.DoesNotExist:
+        return JsonResponse({'status': 'not_found', 'message': 'No se encontró el cupón'})
 
 
 @login_required
 def ticket_create(request, event_id):
     event = get_object_or_404(Event, pk=event_id)
 
+    # Calculamos siempre cuántas entradas le quedan al usuario
+    disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
+    existentes = 4 - disponibles
+
     if request.method == 'POST':
         form = TicketForm(request.POST)
+
+        # *** Aquí fijamos max y data-max dinamicamente ***
+        form.fields['quantity'].widget.attrs.update({
+            'max': str(disponibles),
+            'data-max': str(disponibles),
+        })
+
         if form.is_valid():
             ticket = form.save(commit=False)
             ticket.event = event
             ticket.user = request.user
 
-            disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
-            existentes = 4 - disponibles
-
+            # Verificar cantidad permitida
             if ticket.quantity > disponibles:
                 messages.error(
                     request,
@@ -641,16 +697,46 @@ def ticket_create(request, event_id):
                     'entradas_disponibles': disponibles,
                 })
 
+            # CAMBIO PRINCIPAL: Aplicar descuento siempre que haya código válido
+            code_str = form.cleaned_data.get('discount_code', '').strip()
+            if code_str:
+                try:
+                    discount = DiscountCode.objects.get(code__iexact=code_str)
+                    
+                    # Verificar validez del cupón
+                    if discount.is_valid() and discount.applies_to_event(event):
+                        ticket.discount_code = discount
+                        print(f"Descuento aplicado: {ticket.discount_code}")
+                    else:
+                        ticket.discount_code = None
+                        messages.warning(request, "Código de descuento inválido o expirado.")
+                        
+                except DiscountCode.DoesNotExist:
+                    ticket.discount_code = None
+                    messages.warning(request, "Código de descuento no encontrado.")
+            else:
+                ticket.discount_code = None
+
+            # Guardar el ticket
             ticket.save()
+            
+            # INCREMENTAR USOS DEL CUPÓN DESPUÉS DE GUARDAR
+            if ticket.discount_code:
+                DiscountCode.objects.filter(
+                    pk=ticket.discount_code.pk
+                ).update(uses=F('uses') + 1)
+                print(f"Usos incrementados para cupón: {ticket.discount_code.code}")
+
             # Guardar el ticket_id en la sesión
             request.session['last_ticket_id'] = ticket.id
-            #messages.success(request, '¡Compra exitosa! Nos gustaría conocer tu opinión.')
             return redirect('survey_create', ticket_id=ticket.id)
     else:
         form = TicketForm()
-        disponibles = Ticket.entradas_disponibles_para_usuario(request.user, event)
-        existentes = 4 - disponibles
-        form.fields['quantity'].widget.attrs['data-max'] = disponibles
+        # *** También fijamos max/data-max en GET para que el botón + esté limitado ***
+        form.fields['quantity'].widget.attrs.update({
+            'max': str(disponibles),
+            'data-max': str(disponibles),
+        })
 
     return render(request, 'app/ticket/ticket_form.html', {
         'form': form,
@@ -658,6 +744,7 @@ def ticket_create(request, event_id):
         'entradas_existentes': existentes,
         'entradas_disponibles': disponibles,
     })
+
 
 
 @login_required
@@ -1146,3 +1233,71 @@ def survey_detail(request, survey_id):
     return render(request, 'app/survey_detail.html', {
         'survey': survey
     })
+
+
+
+@login_required
+def discount_list(request):
+    if not request.user.is_organizer:
+        return redirect('home')
+
+    codes = DiscountCode.objects.filter(created_by=request.user)
+    return render(request, 'discount/discount_list.html', {'codes': codes})
+
+# views.py
+@login_required
+def discount_create(request):
+    if not request.user.is_organizer:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = DiscountCodeForm(request.POST, user=request.user)
+        if form.is_valid():
+            discount = form.save(commit=False)
+            discount.created_by = request.user
+            discount.save()
+            return redirect('discount_list')
+    else:
+        form = DiscountCodeForm(user=request.user)
+
+    return render(request, 'discount/discount_form.html', {'form': form})
+
+def discount_edit(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if request.method == 'POST':
+        form = DiscountCodeEditForm(request.POST, instance=code)
+        if form.is_valid():
+            form.save()
+            return redirect('discount_list')  # Cambia al nombre correcto de la url de la lista
+    else:
+        form = DiscountCodeEditForm(instance=code)
+
+    return render(request, 'discount/discount_edit.html', {'form': form, 'code': code})
+
+@login_required
+def discount_delete(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if not request.user.is_organizer or code.created_by != request.user:
+        return redirect('home')
+
+    if request.method == 'POST':
+        code.delete()
+        messages.success(request, "Código de descuento eliminado correctamente.")
+        return redirect('discount_list')
+
+    return render(request, "discount/discount_delete.html", context)
+
+
+@login_required
+def discount_detail(request, pk):
+    code = get_object_or_404(DiscountCode, pk=pk)
+
+    if not request.user.is_organizer or code.created_by != request.user:
+        return redirect('home')
+
+    context = {
+        'code': code,
+    }
+    return render(request, "discount/discount_detail.html", context)

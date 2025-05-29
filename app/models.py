@@ -263,6 +263,16 @@ class Ticket(models.Model):
         verbose_name="Cantidad de entradas",
         default=1
     )
+
+    discount_code = models.ForeignKey(
+        'DiscountCode',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Código de Descuento'
+    )
+
     type = models.CharField(
         max_length=10,
         choices=TICKETS_TYPES,
@@ -470,4 +480,82 @@ class SatisfactionSurvey(models.Model):
         # Validar que el rating sea requerido
         if not self.rating:
             raise ValidationError({'rating': 'La calificación es obligatoria'})        
-       
+
+ # -------------------  Descuentos  -------------------
+
+class DiscountCode(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('fixed', 'Monto fijo ($)'),
+        ('percent', 'Porcentaje (%)'),
+    ]
+
+    created_at    = models.DateTimeField(default=timezone.now)
+    code          = models.CharField(max_length=50, unique=True)
+    description   = models.TextField(blank=True, null=True)
+    valid_from    = models.DateField()
+    valid_until   = models.DateField(blank=True, null=True)
+    max_uses      = models.PositiveIntegerField(blank=True, null=True)
+    uses          = models.PositiveIntegerField(default=0)
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES)
+    discount_value= models.DecimalField(max_digits=10, decimal_places=2)
+
+    # Relación opcional a un solo evento (o None para “Ninguno”)
+    event         = models.ForeignKey(
+                        'Event',
+                        on_delete=models.SET_NULL,
+                        null=True,
+                        blank=True,
+                        related_name='discount_codes'
+                    )
+
+    created_by    = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def clean(self):
+        errors = {}
+
+        # Validación de fechas
+        if self.valid_until and self.valid_until < self.valid_from:
+            errors['valid_until'] = (
+                "'valid_until' debe ser igual o posterior a 'valid_from'."
+            )
+
+        # Valor de descuento
+        if self.discount_value is not None:
+            if self.discount_value <= 0:
+                errors['discount_value'] = (
+                    "El valor del descuento debe ser mayor que cero."
+                )
+            if (self.discount_type == 'percent'
+                    and not (0 < self.discount_value <= 100)):
+                errors['discount_value'] = (
+                    "El porcentaje debe estar entre 1 y 100."
+                )
+
+        # Usos máximos
+        if self.max_uses is not None and self.uses > self.max_uses:
+            errors['max_uses'] = (
+                "Los usos actuales no pueden superar el máximo permitido."
+            )
+        if errors:
+            raise ValidationError(errors)
+            
+    def is_valid(self):
+        today = timezone.now().date()
+        if self.valid_until and self.valid_until < today:
+            return False
+        if self.max_uses is not None and self.uses >= self.max_uses:
+            return False
+        return True
+
+    def remaining_uses(self):
+        if self.max_uses is None:
+            return None  # Ilimitado
+        return self.max_uses - self.uses
+
+    def applies_to_event(self, event):
+        return self.event is None or self.event == event
+
+    def save(self, *args, **kwargs):
+        # Asegura que clean() se ejecute antes de guardar
+        self.full_clean()
+        return super().save(*args, **kwargs)
