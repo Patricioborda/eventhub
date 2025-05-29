@@ -17,7 +17,7 @@ from django.db.models import Q
 from collections import defaultdict
 from django.contrib import messages
 from django.utils.timezone import now
-
+from django.db.models import F, Sum  # Agrega esta línea al inicio del archivo
 
 from django.views.decorators.http import require_POST, require_GET
 
@@ -697,36 +697,36 @@ def ticket_create(request, event_id):
                     'entradas_disponibles': disponibles,
                 })
 
-            if 'apply_discount' in request.POST:  # Asumiendo que el botón para aplicar código se llama así
-                code_str = form.cleaned_data.get('discount_code', '').strip()
-                if code_str:
-                    try:
-                        discount = DiscountCode.objects.get(
-                            code__iexact=code_str,
-                            valid_from__lte=timezone.now().date(),
-                            valid_until__gte=timezone.now().date(),
-                        )
-                        if discount.event is None or discount.event == event:
-                            ticket.discount_code = discount
-                        else:
-                            ticket.discount_code = None
-                            messages.warning(request, "Código de descuento inválido o no encontrado.")  # Mensaje genérico
-                    except DiscountCode.DoesNotExist:
+            # CAMBIO PRINCIPAL: Aplicar descuento siempre que haya código válido
+            code_str = form.cleaned_data.get('discount_code', '').strip()
+            if code_str:
+                try:
+                    discount = DiscountCode.objects.get(code__iexact=code_str)
+                    
+                    # Verificar validez del cupón
+                    if discount.is_valid() and discount.applies_to_event(event):
+                        ticket.discount_code = discount
+                        print(f"Descuento aplicado: {ticket.discount_code}")
+                    else:
                         ticket.discount_code = None
-                        messages.warning(request, "Código de descuento inválido o no encontrado.")
-                else:
+                        messages.warning(request, "Código de descuento inválido o expirado.")
+                        
+                except DiscountCode.DoesNotExist:
                     ticket.discount_code = None
+                    messages.warning(request, "Código de descuento no encontrado.")
             else:
-                # No se intentó aplicar código, no mostrar mensajes
                 ticket.discount_code = None
 
+            # Guardar el ticket
             ticket.save()
+            
+            # INCREMENTAR USOS DEL CUPÓN DESPUÉS DE GUARDAR
             if ticket.discount_code:
-                # Incrementa en 1 cada vez que se use el cupón
                 DiscountCode.objects.filter(
                     pk=ticket.discount_code.pk
                 ).update(uses=F('uses') + 1)
-            print(f"Descuento aplicado: {ticket.discount_code}")
+                print(f"Usos incrementados para cupón: {ticket.discount_code.code}")
+
             # Guardar el ticket_id en la sesión
             request.session['last_ticket_id'] = ticket.id
             return redirect('survey_create', ticket_id=ticket.id)

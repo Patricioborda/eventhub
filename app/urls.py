@@ -64,3 +64,4 @@ urlpatterns = [
     path('discount/<int:pk>/delete/', views.discount_delete, name='discount_delete'),
     path('discount/<int:pk>/', views.discount_detail, name='discount_detail'),
     path('ajax/validar-cupon/', views.validar_cupon, name='validar_cupon'),]
+

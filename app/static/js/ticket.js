@@ -134,12 +134,15 @@ window.addEventListener("DOMContentLoaded", () => {
         errorDiv.textContent = data.message;
         descuentoValor = data.discount_value;
         descuentoTipo = data.discount_type;   // 'fixed' o 'percent'
+         document.getElementById('validated-discount-code').value = codigo;
       } else {
         errorDiv.style.display = 'block';
         errorDiv.classList.replace('text-success','text-danger');
         errorDiv.textContent = data.message;
         descuentoValor = 0;
         descuentoTipo = null;
+
+        document.getElementById('validated-discount-code').value = '';
       }
       actualizarResumen();
     } catch {
