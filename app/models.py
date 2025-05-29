@@ -263,6 +263,16 @@ class Ticket(models.Model):
         verbose_name="Cantidad de entradas",
         default=1
     )
+
+    discount_code = models.ForeignKey(
+        'DiscountCode',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Código de Descuento'
+    )
+
     type = models.CharField(
         max_length=10,
         choices=TICKETS_TYPES,
@@ -528,6 +538,22 @@ class DiscountCode(models.Model):
             )
         if errors:
             raise ValidationError(errors)
+            
+    def is_valid(self):
+        today = timezone.now().date()
+        if self.valid_until and self.valid_until < today:
+            return False
+        if self.max_uses is not None and self.uses >= self.max_uses:
+            return False
+        return True
+
+    def remaining_uses(self):
+        if self.max_uses is None:
+            return None  # Ilimitado
+        return self.max_uses - self.uses
+
+    def applies_to_event(self, event):
+        return self.event is None or self.event == event
 
     def save(self, *args, **kwargs):
         # Asegura que clean() se ejecute antes de guardar

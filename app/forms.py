@@ -145,9 +145,17 @@ class RefundRequestForm(forms.ModelForm):
 
 # --- Formulario de Tickets ---
 class TicketForm(forms.ModelForm):
+    
+    discount_code = forms.CharField(
+        required=False,
+        max_length=50,
+        label="Código de descuento",
+        widget=forms.TextInput(attrs={'placeholder': 'Ingresa código (opcional)'})
+    )
+
     class Meta:
         model = Ticket
-        fields = ['quantity', 'type'] 
+        fields = ['quantity', 'type']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -448,12 +456,15 @@ class DiscountCodeEditForm(forms.ModelForm):
         valid_until = cleaned_data.get('valid_until')
         max_uses = cleaned_data.get('max_uses')
 
-        if self.valid_from is not None:
-            if self.valid_from < timezone.now().date():
+        if valid_from is not None:
+            # Cambié self.valid_from por valid_from
+            if valid_from < timezone.now().date():
                 raise ValidationError({'valid_from': 'La fecha de inicio no puede ser en el pasado.'})
 
-        if self.valid_until and self.valid_from and self.valid_from > self.valid_until:
+        # Cambié self.valid_until y self.valid_from por valid_until y valid_from
+        if valid_until and valid_from and valid_from > valid_until:
             raise ValidationError({'valid_until': 'La fecha de finalización debe ser mayor o igual a la fecha de inicio.'})
+
         if max_uses is not None and max_uses < 1:
             self.add_error('max_uses', 'El máximo de usos debe ser al menos 1.')
 
