@@ -16,5 +16,5 @@ COPY . .
 # Exponer el puerto que usará (default: 8000)
 EXPOSE 8000
 
-# Comando por defecto al levantar el contenedor
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Ejecutar migraciones y luego levantar el servidor
+CMD python manage.py migrate && python manage.py runserver 0.0.0.0:8000
