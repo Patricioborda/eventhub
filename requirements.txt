@@ -25,4 +25,9 @@ typing_extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
 Babel>=2.0
-dateparser 
+dateparser
+
+django-widget-tweaks
+django-countries
+django-cities-light
+python-dotenv==1.0.0
