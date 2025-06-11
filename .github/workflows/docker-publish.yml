@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: eventhub
+  IMAGE_NAME: tomaspipolo1/eventhub
 
 jobs:
   build-and-push:
@@ -26,7 +26,7 @@ jobs:
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
-        with:
+        with: 
           username: ${{ secrets.DOCKERHUB_USERNAME }} #Se han cargado las credenciales en el repositorio
           password: ${{ secrets.DOCKERHUB_TOKEN }}  #Se han cargado las credenciales en el repositorio
 
