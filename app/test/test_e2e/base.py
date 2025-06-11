@@ -6,8 +6,8 @@ from playwright.sync_api import sync_playwright
 from app.models import User
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-headless = False
-slow_mo = 250
+headless = True
+slow_mo = 0
 
 
 class BaseE2ETest(StaticLiveServerTestCase):
