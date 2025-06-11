@@ -4,7 +4,9 @@ FROM python:3.11-slim as builder
 # Establecer variables de entorno
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    DJANGO_DEBUG=True \
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 
 # Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,10 +33,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Establecer variables de entorno
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    DJANGO_DEBUG=True \
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 
 # Establecer el directorio de trabajo
 WORKDIR /app
+
+# Crear directorios necesarios
+RUN mkdir -p /app/static /app/staticfiles
 
 # Copiar solo los archivos necesarios del proyecto
 COPY . .
