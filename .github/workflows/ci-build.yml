@@ -77,7 +77,7 @@ jobs:
       - name: Ejecutar tests unitarios con coverage
         run: |
           mkdir -p static
-          coverage run --source='.' manage.py test test.test_unit --verbosity=2
+          coverage run --source='.' manage.py test app.test.test_unit --verbosity=2
           coverage report --show-missing
 
   integration-test:
@@ -122,7 +122,7 @@ jobs:
       - name: Ejecutar tests de integración
         run: |
           mkdir -p static
-          python manage.py test test.test_integration --verbosity=2
+          python manage.py test app.test.test_integration --verbosity=2
 
       - name: Verificar configuración de deployment
         run: |
