@@ -1,17 +1,17 @@
-name: Docker Build and Push
+name: Continuous Delivery
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  release:
+    types: [published]
 
 env:
   REGISTRY: docker.io
   IMAGE_NAME: tomaspipolo1/eventhub
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,30 +36,26 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
+            type=semver,pattern={{version}},event=release
+            type=semver,pattern={{major}}.{{minor}},event=release
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: tomaspipolo1/eventhub:latest
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Agregar job de deploy DESPUÉS de build
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    # Solo hacer deploy en PRs, no en push a main
-    if: github.event_name == 'pull_request'
-    
-    steps:
-      - name: Trigger Render Deploy Hook
+      # Deploy según el evento
+      - name: Deploy to ${{ github.event_name == 'pull_request' && 'Preview' || 'Production' }} Environment
         run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            curl -X POST ${{ secrets.RENDER_PREVIEW_DEPLOY_HOOK_URL }}
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          fi
