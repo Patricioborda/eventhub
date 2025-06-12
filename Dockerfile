@@ -1,20 +1,57 @@
-# Uso la imagen oficial de Python
-FROM python:3.11-slim
+# Stage 1: Builder
+FROM python:3.11-slim as builder
+
+# Establecer variables de entorno
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DJANGO_DEBUG=True \
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+
+# Instalar dependencias del sistema necesarias
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Copiar dependencias primero para aprovechar el cache de Docker
+# Copiar solo los archivos necesarios para instalar dependencias
 COPY requirements.txt .
 
-# Instalar dependencias
+# Instalar dependencias en un directorio virtual
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el resto de los archivos del proyecto
+# Stage 2: Runtime
+FROM python:3.11-slim
+
+# Copiar el entorno virtual desde el builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Establecer variables de entorno
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_DEBUG=True \
+    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+
+# Establecer el directorio de trabajo
+WORKDIR /app
+
+# Crear directorios necesarios
+RUN mkdir -p /app/static /app/staticfiles
+
+# Copiar solo los archivos necesarios del proyecto
 COPY . .
 
-# Exponer el puerto que usará (default: 8000)
+# Exponer el puerto
 EXPOSE 8000
 
-# Ejecutar migraciones y luego levantar el servidor
-CMD python manage.py migrate && python manage.py runserver 0.0.0.0:8000
+# Script de inicio
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Ejecutar el script de inicio
+ENTRYPOINT ["/docker-entrypoint.sh"]
