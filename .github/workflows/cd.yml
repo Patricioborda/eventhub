@@ -1,12 +1,17 @@
 name: Deploy to Render from DockerHub
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Docker Build and Push"]
+    types:
+      - completed
     branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
     steps:
       - name: Trigger Render Deploy Hook
         run: |
