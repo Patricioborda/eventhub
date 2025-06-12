@@ -21,7 +21,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eventhub:latest .
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/eventhub:latest ./eventhub
 
       - name: Push image to Docker Hub
         run: |
