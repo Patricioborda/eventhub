@@ -31,3 +31,4 @@ django-widget-tweaks
 django-countries
 django-cities-light
 python-dotenv==1.0.0
+django-cors-headers==4.3.1
