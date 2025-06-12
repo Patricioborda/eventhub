@@ -34,6 +34,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'eventhub-g15.onrender.com, eventhub-
 # CSRF and CORS Settings
 CSRF_TRUSTED_ORIGINS = [
     'https://eventhub-g15.onrender.com',
+    'https://eventhub-g15-pre.onrender.com',
     'http://localhost:8000',
     'http://127.0.0.1:8000'
 ]
