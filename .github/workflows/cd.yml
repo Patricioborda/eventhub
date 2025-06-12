@@ -51,7 +51,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Deploy según el evento
       - name: Deploy to ${{ github.event_name == 'pull_request' && 'Preview' || 'Production' }} Environment
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -68,7 +67,12 @@ jobs:
         run: sleep 10
 
       - name: Verificar que la app esté online
-        run: curl -f https://eventhub-g15.onrender.com
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            curl -f https://eventhub-g15.onrender.com
+          else
+            curl -f https://eventhub-preview.onrender.com
+          fi
 
   notify-deployment:
     runs-on: ubuntu-latest
@@ -79,6 +83,7 @@ jobs:
       - name: Notificar deploy exitoso
         if: needs.verify-deployment.result == 'success'
         run: |
+          URL=$([[ "${{ github.event_name }}" == "release" ]] && echo "https://eventhub-g15.onrender.com" || echo "https://eventhub-preview.onrender.com")
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
@@ -90,7 +95,7 @@ jobs:
                 {\"name\": \"Rama\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
                 {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": true},
                 {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                {\"name\": \"URL\", \"value\": \"https://eventhub-g15.onrender.com\", \"inline\": false}
+                {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
               ],
               \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
             }]
@@ -100,6 +105,7 @@ jobs:
       - name: Notificar deploy fallido
         if: needs.verify-deployment.result == 'failure'
         run: |
+          URL=$([[ "${{ github.event_name }}" == "release" ]] && echo "https://eventhub-g15.onrender.com" || echo "https://eventhub-preview.onrender.com")
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
@@ -111,7 +117,8 @@ jobs:
                 {\"name\": \"Rama\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
                 {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": true},
                 {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                {\"name\": \"Logs\", \"value\": \"[Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\", \"inline\": false}
+                {\"name\": \"Logs\", \"value\": \"[Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\", \"inline\": false},
+                {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
               ],
               \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
             }]
