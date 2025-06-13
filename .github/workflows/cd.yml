@@ -53,9 +53,9 @@ jobs:
 
       - name: Deploy to ${{ github.event_name == 'pull_request' && 'Preview' || 'Production' }} Environment
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             curl -X POST ${{ secrets.RENDER_PREVIEW_DEPLOY_HOOK_URL }}
-          elif [ "${{ github.event_name }}" = "release" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "release" ]; then
             curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
           fi
 
@@ -68,10 +68,10 @@ jobs:
 
       - name: Verificar que la app esté online
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
             curl -f https://eventhub-g15.onrender.com
           else
-            curl -f https://eventhub-preview.onrender.com
+            curl -f https://eventhub-g15-pre.onrender.com
           fi
 
   notify-deployment:
@@ -83,7 +83,12 @@ jobs:
       - name: Notificar deploy exitoso
         if: needs.verify-deployment.result == 'success'
         run: |
-          URL=$([[ "${{ github.event_name }}" == "release" ]] && echo "https://eventhub-g15.onrender.com" || echo "https://eventhub-preview.onrender.com")
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            URL="https://eventhub-g15.onrender.com"
+          else
+            URL="https://eventhub-g15-pre.onrender.com"
+          fi
+
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
@@ -92,9 +97,9 @@ jobs:
               \"description\": \"La aplicación EventHub se ha desplegado correctamente en Render\",
               \"color\": 3066993,
               \"fields\": [
-                {\"name\": \"Rama\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
-                {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": true},
-                {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
+                {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
                 {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
               ],
               \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
@@ -105,7 +110,12 @@ jobs:
       - name: Notificar deploy fallido
         if: needs.verify-deployment.result == 'failure'
         run: |
-          URL=$([[ "${{ github.event_name }}" == "release" ]] && echo "https://eventhub-g15.onrender.com" || echo "https://eventhub-preview.onrender.com")
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            URL="https://eventhub-g15.onrender.com"
+          else
+            URL="https://eventhub-g15-pre.onrender.com"
+          fi
+
           curl -H "Content-Type: application/json" \
           -X POST \
           -d "{
@@ -114,10 +124,10 @@ jobs:
               \"description\": \"El deploy de EventHub en Render ha fallado\",
               \"color\": 15158332,
               \"fields\": [
-                {\"name\": \"Rama\", \"value\": \"${{ github.ref_name }}\", \"inline\": true},
-                {\"name\": \"Commit\", \"value\": \"${{ github.sha }}\", \"inline\": true},
-                {\"name\": \"Actor\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                {\"name\": \"Logs\", \"value\": \"[Ver logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\", \"inline\": false},
+                {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
+                {\"name\": \"Logs\", \"value\": \"[Ver logs](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})\", \"inline\": false},
                 {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
               ],
               \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
