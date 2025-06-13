@@ -1,11 +1,12 @@
 name: Continuous Delivery
 
 on:
-  workflow_run:
-    workflows: ["CI - Build and Test"]
-    types:
-      - completed
-
+  release:
+    types: [published]         # posterior a crear una release
+  push:
+    branches:
+      - main                   # posterior a aprobar PR
+      
 env:
   REGISTRY: docker.io
   IMAGE_NAME: tomaspipolo1/eventhub
