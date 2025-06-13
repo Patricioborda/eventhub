@@ -2,7 +2,7 @@ name: Continuous Delivery
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   release:
     types: [published]
 
@@ -26,7 +26,7 @@ jobs:
 
       - name: Log in to DockerHub
         uses: docker/login-action@v3
-        with: 
+        with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -51,11 +51,92 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Deploy según el evento
       - name: Deploy to ${{ github.event_name == 'pull_request' && 'Preview' || 'Production' }} Environment
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             curl -X POST ${{ secrets.RENDER_PREVIEW_DEPLOY_HOOK_URL }}
-          elif [ "${{ github.event_name }}" = "release" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "release" ]; then
             curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
           fi
+
+  verify-deployment:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    steps:
+      - name: Esperar que Render levante
+        run: sleep 10
+
+      - name: Verificar que la app esté online
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            curl -f https://eventhub-g15.onrender.com
+          else
+            curl -f https://eventhub-g15-pre.onrender.com
+          fi
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [verify-deployment]
+    if: always()
+
+    steps:
+      - name: Notificar deploy exitoso
+        if: needs.verify-deployment.result == 'success'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            ENVIRONMENT="Production"
+            URL="https://eventhub-g15.onrender.com"
+          else
+            ENVIRONMENT="Preview"
+            URL="https://eventhub-g15-pre.onrender.com"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"🚀 Deploy Exitoso\",
+              \"description\": \"La aplicación EventHub se ha desplegado correctamente en Render\",
+              \"color\": 3066993,
+              \"fields\": [
+                {\"name\": \"Entorno\", \"value\": \"$ENVIRONMENT\", \"inline\": true},
+                {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
+                {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
+              ],
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Notificar deploy fallido
+        if: needs.verify-deployment.result == 'failure'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            ENVIRONMENT="Production"
+            URL="https://eventhub-g15.onrender.com"
+          else
+            ENVIRONMENT="Preview"
+            URL="https://eventhub-g15-pre.onrender.com"
+          fi
+
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d "{
+            \"embeds\": [{
+              \"title\": \"❌ Deploy Fallido\",
+              \"description\": \"El deploy de EventHub en Render ha fallado\",
+              \"color\": 15158332,
+              \"fields\": [
+                {\"name\": \"Entorno\", \"value\": \"$ENVIRONMENT\", \"inline\": true},
+                {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
+                {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
+                {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
+                {\"name\": \"Logs\", \"value\": \"[Ver logs](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})\", \"inline\": false},
+                {\"name\": \"URL\", \"value\": \"$URL\", \"inline\": false}
+              ],
+              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
