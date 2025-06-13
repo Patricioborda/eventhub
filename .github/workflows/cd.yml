@@ -5,6 +5,10 @@ on:
     branches: [ "main" ]
   release:
     types: [published]
+  workflow_run:
+    workflows: ["CI - Build and Test"]
+    types:
+      - completed
 
 env:
   REGISTRY: docker.io
@@ -16,6 +20,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout repository
