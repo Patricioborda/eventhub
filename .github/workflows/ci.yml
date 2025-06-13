@@ -3,6 +3,8 @@ name: CI - Build and Test
 on:
   pull_request:
     branches: [main]
+  release:
+    types: [published, created, edited]
 
 jobs:
   build:
