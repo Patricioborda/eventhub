@@ -84,8 +84,10 @@ jobs:
         if: needs.verify-deployment.result == 'success'
         run: |
           if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            ENVIRONMENT="Production"
             URL="https://eventhub-g15.onrender.com"
           else
+            ENVIRONMENT="Preview"
             URL="https://eventhub-g15-pre.onrender.com"
           fi
 
@@ -97,6 +99,7 @@ jobs:
               \"description\": \"La aplicación EventHub se ha desplegado correctamente en Render\",
               \"color\": 3066993,
               \"fields\": [
+                {\"name\": \"Entorno\", \"value\": \"$ENVIRONMENT\", \"inline\": true},
                 {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
                 {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
                 {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
@@ -111,8 +114,10 @@ jobs:
         if: needs.verify-deployment.result == 'failure'
         run: |
           if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            ENVIRONMENT="Production"
             URL="https://eventhub-g15.onrender.com"
           else
+            ENVIRONMENT="Preview"
             URL="https://eventhub-g15-pre.onrender.com"
           fi
 
@@ -124,6 +129,7 @@ jobs:
               \"description\": \"El deploy de EventHub en Render ha fallado\",
               \"color\": 15158332,
               \"fields\": [
+                {\"name\": \"Entorno\", \"value\": \"$ENVIRONMENT\", \"inline\": true},
                 {\"name\": \"Rama\", \"value\": \"${GITHUB_REF_NAME}\", \"inline\": true},
                 {\"name\": \"Commit\", \"value\": \"${GITHUB_SHA}\", \"inline\": true},
                 {\"name\": \"Actor\", \"value\": \"${GITHUB_ACTOR}\", \"inline\": true},
