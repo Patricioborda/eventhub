@@ -5,6 +5,8 @@ on:
     branches: [main]
   release:
     types: [published, created, edited]
+  push:
+    branches: [main]
 
 jobs:
   build:
